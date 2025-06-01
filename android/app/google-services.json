@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "953542119429",
+    "project_id": "spotable-30891",
+    "storage_bucket": "spotable-30891.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953542119429:android:2d75a3a58894593cf24c6c",
+        "android_client_info": {
+          "package_name": "com.example.spotable_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCYEnGtA5uk_f4ZCrVW_cqoexuagWjk7wA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

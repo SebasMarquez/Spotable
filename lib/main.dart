@@ -3,9 +3,14 @@ import 'screens/menu_screen.dart';
 import 'utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'services/cart_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(MyApp());
 }
 
