@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
-import 'screens/select_screen.dart';
+import 'screens/menu_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'screens/restaurant_screen.dart';
 import 'utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'services/cart_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'screens/restaurant_list_screen.dart';
+import 'models/restaurant.dart';
+import 'screens/restaurant_login_screen.dart';
+import 'services/firebase_service.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -21,10 +31,74 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.red,
           scaffoldBackgroundColor: AppColors.background,
         ),
-        home: const MainScreen(),
         debugShowCheckedModeBanner: false,
+        home: _RootNavigator(),
       ),
     );
+  }
+}
+
+class _RootNavigator extends StatefulWidget {
+  @override
+  State<_RootNavigator> createState() => _RootNavigatorState();
+}
+
+class _RootNavigatorState extends State<_RootNavigator> {
+  Widget? _screen;
+
+  @override
+  void initState() {
+    super.initState();
+    _screen = WelcomeScreen(
+      onUserTap: () {
+        setState(() {
+          _screen = RestaurantListScreen(
+            onRestaurantSelected: (Restaurant restaurant) {
+              setState(() {
+                // Aquí puedes pasar el restaurante seleccionado a MenuScreen si lo necesitas
+                _screen = MenuScreen();
+              });
+            },
+          );
+        });
+      },
+      onRestaurantTap: () {
+        setState(() {
+          _screen = RestaurantLoginScreen(
+            onLogin: (String id) async {
+              final exists = await FirebaseService().restaurantExists(id);
+              if (exists) {
+                setState(() {
+                  _screen = RestaurantScreen(restaurantId: id);
+                });
+              } else {
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('ID incorrecto'),
+                        content: const Text(
+                          'No existe un restaurante con ese ID.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                );
+              }
+            },
+          );
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _screen!;
   }
 }
 
