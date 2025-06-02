@@ -6,6 +6,10 @@ import '../widgets/cart_item_widget.dart';
 import '../utils/app_colors.dart';
 
 class CartScreen extends StatelessWidget {
+  final String? restaurantId; // Agregar parámetro para recibir el ID del restaurante
+  
+  const CartScreen({Key? key, this.restaurantId}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,11 +23,12 @@ class CartScreen extends StatelessWidget {
             return _buildEmptyCart();
           }
 
-          return Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Expanded(
+          return Column(
+            children: [
+              // Lista de items con Expanded para que tome el espacio disponible
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListView.builder(
                     itemCount: cartService.cartItems.length,
                     itemBuilder: (context, index) {
@@ -36,11 +41,30 @@ class CartScreen extends StatelessWidget {
                     },
                   ),
                 ),
-                _buildOrderSummary(cartService),
-                SizedBox(height: 16),
-                _buildPlaceOrderButton(context, cartService),
-              ],
-            ),
+              ),
+              // Resumen y botón en la parte inferior
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildOrderSummary(cartService),
+                    SizedBox(height: 16),
+                    _buildPlaceOrderButton(context, cartService),
+                  ],
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -136,15 +160,42 @@ class CartScreen extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          cartService.placeOrder();
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('¡Orden realizada con éxito!'),
-              backgroundColor: AppColors.secondary,
-            ),
-          );
+        onPressed: cartService.isPlacingOrder ? null : () async {
+          // Establecer el restaurante si se proporcionó
+          if (restaurantId != null) {
+            cartService.setCurrentRestaurant(restaurantId!);
+          }
+          
+          // Verificar que hay un restaurante establecido
+          if (!cartService.hasRestaurantSet) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: No se ha establecido el restaurante'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          
+          // Realizar la orden
+          final success = await cartService.placeOrderSimple();
+          
+          if (success) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('¡Orden realizada con éxito!'),
+                backgroundColor: AppColors.secondary,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error al realizar la orden. Intenta de nuevo.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.secondary,
@@ -154,20 +205,42 @@ class CartScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check),
-            SizedBox(width: 8),
-            Text(
-              'Realizar Pedido',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+        child: cartService.isPlacingOrder 
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Procesando...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check),
+                SizedBox(width: 8),
+                Text(
+                  'Realizar Pedido',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
       ),
     );
   }
