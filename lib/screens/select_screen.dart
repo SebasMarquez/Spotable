@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import '/screens/menu_screen.dart';
 import '/screens/reservation_screen.dart';
 
@@ -9,7 +9,7 @@ class MainScreen extends StatelessWidget {
   void _navigateToMenu(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MenuScreen()),
+      MaterialPageRoute(builder: (context) => MenuScreen()),
     );
   }
 
@@ -53,4 +53,4 @@ class MainScreen extends StatelessWidget {
       ),
     );
   }
-}
+}*/
