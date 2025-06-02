@@ -20,12 +20,12 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
+      appBar: const CustomAppBar(
         title: 'Detalle del Plato',
         showBackButton: true,
       ),
       body: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Card(
           elevation: 2,
           color: AppColors.cardBackground,
@@ -33,45 +33,45 @@ class _DetailScreenState extends State<DetailScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   widget.menuItem.image,
-                  style: TextStyle(fontSize: 64),
+                  style: const TextStyle(fontSize: 64),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   widget.menuItem.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   widget.menuItem.description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     color: AppColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 Text(
                   '\$${widget.menuItem.price.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 _buildQuantitySelector(),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 _buildAddToCartButton(context),
               ],
             ),
@@ -93,31 +93,28 @@ class _DetailScreenState extends State<DetailScreen> {
               });
             }
           },
-          icon: Icon(Icons.remove),
+          icon: const Icon(Icons.remove),
           style: IconButton.styleFrom(
             backgroundColor: Colors.grey.shade200,
-            shape: CircleBorder(),
+            shape: const CircleBorder(),
           ),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         Text(
           '$quantity',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         IconButton(
           onPressed: () {
             setState(() {
               quantity++;
             });
           },
-          icon: Icon(Icons.add),
+          icon: const Icon(Icons.add),
           style: IconButton.styleFrom(
             backgroundColor: Colors.grey.shade200,
-            shape: CircleBorder(),
+            shape: const CircleBorder(),
           ),
         ),
       ],
@@ -129,8 +126,10 @@ class _DetailScreenState extends State<DetailScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () {
-          Provider.of<CartService>(context, listen: false)
-              .addToCart(widget.menuItem, quantity);
+          Provider.of<CartService>(
+            context,
+            listen: false,
+          ).addToCart(widget.menuItem, quantity);
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -142,22 +141,17 @@ class _DetailScreenState extends State<DetailScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart),
-            SizedBox(width: 8),
+            const Icon(Icons.shopping_cart),
+            const SizedBox(width: 8),
             Text(
               'Agregar al Carrito - \$${(widget.menuItem.price * quantity).toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ],
         ),

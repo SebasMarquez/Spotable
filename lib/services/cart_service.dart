@@ -3,7 +3,7 @@ import '../models/cart_item.dart';
 import '../models/menu_item.dart';
 
 class CartService extends ChangeNotifier {
-  List<CartItem> _cartItems = [];
+  final List<CartItem> _cartItems = [];
 
   List<CartItem> get cartItems => _cartItems;
 
@@ -25,7 +25,7 @@ class CartService extends ChangeNotifier {
     } else {
       _cartItems.add(CartItem(menuItem: menuItem, quantity: quantity));
     }
-    
+
     notifyListeners();
   }
 
@@ -41,10 +41,12 @@ class CartService extends ChangeNotifier {
 
   void placeOrder() {
     // Simular creación de orden
-    print('Orden creada: ${_cartItems.map((item) => '${item.menuItem.name} x${item.quantity}').toList()}');
+    print(
+      'Orden creada: ${_cartItems.map((item) => '${item.menuItem.name} x${item.quantity}').toList()}',
+    );
     print('Total: \$${totalPrice.toStringAsFixed(2)}');
     print('Timestamp: ${DateTime.now().toIso8601String()}');
-    
+
     clearCart();
   }
 }

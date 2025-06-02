@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'screens/menu_screen.dart';
+import 'screens/select_screen.dart';
 import 'utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'services/cart_service.dart';
 
-
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -20,7 +21,7 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.red,
           scaffoldBackgroundColor: AppColors.background,
         ),
-        home: MenuScreen(),
+        home: const MainScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );

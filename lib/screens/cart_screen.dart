@@ -6,13 +6,12 @@ import '../widgets/cart_item_widget.dart';
 import '../utils/app_colors.dart';
 
 class CartScreen extends StatelessWidget {
+  const CartScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Mi Carrito',
-        showBackButton: true,
-      ),
+      appBar: const CustomAppBar(title: 'Mi Carrito', showBackButton: true),
       body: Consumer<CartService>(
         builder: (context, cartService, child) {
           if (cartService.cartItems.isEmpty) {
@@ -20,7 +19,7 @@ class CartScreen extends StatelessWidget {
           }
 
           return Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 Expanded(
@@ -28,7 +27,7 @@ class CartScreen extends StatelessWidget {
                     itemCount: cartService.cartItems.length,
                     itemBuilder: (context, index) {
                       return Padding(
-                        padding: EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.only(bottom: 16),
                         child: CartItemCard(
                           cartItem: cartService.cartItems[index],
                         ),
@@ -37,7 +36,7 @@ class CartScreen extends StatelessWidget {
                   ),
                 ),
                 _buildOrderSummary(cartService),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildPlaceOrderButton(context, cartService),
               ],
             ),
@@ -57,13 +56,10 @@ class CartScreen extends StatelessWidget {
             size: 64,
             color: Colors.grey.shade400,
           ),
-          SizedBox(height: 16),
-          Text(
+          const SizedBox(height: 16),
+          const Text(
             'Tu carrito está vacío',
-            style: TextStyle(
-              fontSize: 18,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 18, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -74,15 +70,13 @@ class CartScreen extends StatelessWidget {
     return Card(
       elevation: 2,
       color: AppColors.cardBackground,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Resumen del Pedido',
               style: TextStyle(
                 fontSize: 18,
@@ -90,25 +84,22 @@ class CartScreen extends StatelessWidget {
                 color: AppColors.textPrimary,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Total de items:',
-                  style: TextStyle(fontSize: 16),
-                ),
+                const Text('Total de items:', style: TextStyle(fontSize: 16)),
                 Text(
                   '${cartService.totalItems}',
-                  style: TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 16),
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Total:',
                   style: TextStyle(
                     fontSize: 20,
@@ -118,7 +109,7 @@ class CartScreen extends StatelessWidget {
                 ),
                 Text(
                   '\$${cartService.totalPrice.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -140,7 +131,7 @@ class CartScreen extends StatelessWidget {
           cartService.placeOrder();
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('¡Orden realizada con éxito!'),
               backgroundColor: AppColors.secondary,
             ),
@@ -149,22 +140,17 @@ class CartScreen extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.secondary,
           foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check),
             SizedBox(width: 8),
             Text(
               'Realizar Pedido',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ],
         ),
