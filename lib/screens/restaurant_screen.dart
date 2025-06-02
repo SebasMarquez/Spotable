@@ -26,7 +26,7 @@ class RestaurantScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Panel Restaurante'),
+            title: const Text('Panel Restaurante'),
             backgroundColor: Colors.red[600],
           ),
           body: SingleChildScrollView(
@@ -70,7 +70,7 @@ class RestaurantScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
+                SizedBox(
                   height: 300, // Altura fija para el scroll
                   child: StreamBuilder<QuerySnapshot>(
                     stream: firebaseService.ordersStream(restaurantId),

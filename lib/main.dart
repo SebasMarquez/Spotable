@@ -15,7 +15,7 @@ import 'services/firebase_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -56,7 +56,7 @@ class _RootNavigatorState extends State<_RootNavigator> {
             onRestaurantSelected: (Restaurant restaurant) {
               setState(() {
                 // Aquí puedes pasar el restaurante seleccionado a MenuScreen si lo necesitas
-                _screen = MenuScreen();
+                _screen = const MenuScreen();
               });
             },
           );

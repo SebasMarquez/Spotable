@@ -5,6 +5,7 @@ import '../services/cart_service.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/menu_item_card.dart';
 import '../utils/app_colors.dart';
+import 'reservation_screen.dart';
 import 'detail_screen.dart';
 import 'cart_screen.dart';
 
@@ -31,6 +32,7 @@ class MenuScreen extends StatelessWidget {
                       color: AppColors.textPrimary,
                     ),
                   ),
+                  _buildReservationButton(context),
                   const SizedBox(height: 16),
                   Expanded(
                     child: GridView.builder(
@@ -70,6 +72,38 @@ class MenuScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildReservationButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ReservationScreen(),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            elevation: 0,
+          ),
+          child: const Text(
+            'Reservar',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomCartButton(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -83,7 +117,7 @@ class MenuScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => CartScreen()),
+                MaterialPageRoute(builder: (context) => const CartScreen()),
               );
             },
             style: ElevatedButton.styleFrom(
