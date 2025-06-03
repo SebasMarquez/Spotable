@@ -38,7 +38,17 @@ class ReservationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mesas disponibles')),
+      appBar: AppBar(
+        title: const Text('Reservaciones'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream:
             FirebaseFirestore.instance
@@ -237,7 +247,16 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
     return Theme(
       data: buildReservationTheme(),
       child: Scaffold(
-        appBar: AppBar(title: Text('Reservar Mesa ${widget.mesa.numero}')),
+        appBar: AppBar(
+          title: Text('Reservar Mesa ${widget.mesa.numero}'),
+          leading:
+              Navigator.of(context).canPop()
+                  ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                  : null,
+        ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child:

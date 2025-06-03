@@ -20,9 +20,16 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Detalle del Plato',
-        showBackButton: true,
+      appBar: AppBar(
+        title: const Text('Detalle del Plato'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

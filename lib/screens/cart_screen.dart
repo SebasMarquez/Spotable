@@ -14,7 +14,17 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'Mi Carrito', showBackButton: true),
+      appBar: AppBar(
+        title: const Text('Carrito'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: Consumer<CartService>(
         builder: (context, cartService, child) {
           if (cartService.cartItems.isEmpty) {

@@ -1,29 +1,40 @@
-/*import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '/screens/menu_screen.dart';
 import '/screens/reservation_screen.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({Key? key}) : super(key: key);
 
-  // Implementación de la navegación a la pantalla del menú del restaurante
   void _navigateToMenu(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => MenuScreen()),
+      MaterialPageRoute(builder: (context) => MenuScreen(restaurantId: '1')),
     );
   }
 
   void _navigateToReservation(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ReservationScreen()),
+      MaterialPageRoute(
+        builder: (context) => ReservationScreen(restauranteId: '1'),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bienvenido'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Seleccionar'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -53,4 +64,4 @@ class MainScreen extends StatelessWidget {
       ),
     );
   }
-}*/
+}

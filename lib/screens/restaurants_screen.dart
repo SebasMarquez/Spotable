@@ -62,7 +62,17 @@ class RestaurantsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Restaurantes')),
+      appBar: AppBar(
+        title: const Text('Restaurantes'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: ListView.builder(
         itemCount: defaultRestaurants.length,
         itemBuilder: (context, index) {
@@ -86,7 +96,17 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Menú de ${restaurant.name}')),
+      appBar: AppBar(
+        title: Text('Menú de ${restaurant.name}'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: ListView.builder(
         itemCount: restaurant.menu.length,
         itemBuilder: (context, index) {
