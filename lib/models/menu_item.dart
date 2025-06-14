@@ -8,7 +8,7 @@ class MenuItem {
   final String image;
   final String description;
   final String category;
-  final bool isAvailable;
+  final bool available;
 
   MenuItem({
     this.id,
@@ -17,7 +17,7 @@ class MenuItem {
     required this.image,
     required this.description,
     required this.category,
-    this.isAvailable = true,
+    this.available = true,
   });
 
   // Crear MenuItem desde Firestore
@@ -31,7 +31,7 @@ class MenuItem {
       price: (data['Precio'] ?? 0).toDouble(),
       category: data['Categoria'] ?? '',
       image: data['Imagen'] ?? '',
-      isAvailable: data['Disponible'] ?? true,
+      available: data['available'] ?? true,
     );
   }
 
@@ -43,7 +43,7 @@ class MenuItem {
       'Precio': price,
       'Categoria': category,
       'Imagen': image,
-      'Disponible': isAvailable,
+      'available': available,
     };
   }
 
@@ -55,7 +55,7 @@ class MenuItem {
     double? price,
     String? category,
     //String? imageUrl,
-    bool? isAvailable,
+    bool? available,
   }) {
     return MenuItem(
       id: id ?? this.id,
@@ -64,7 +64,7 @@ class MenuItem {
       price: price ?? this.price,
       category: category ?? this.category,
       image: image ?? image,
-      isAvailable: isAvailable ?? this.isAvailable,
+      available: available ?? this.available,
     );
   }
 

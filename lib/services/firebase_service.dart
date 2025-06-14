@@ -10,8 +10,7 @@ class FirebaseService {
   // Colecciones
   static const String _restauranteCollection = 'Restaurante';
   static const String _menuSubCollection = 'Menu';
-  static const String _ordersSubCollection =
-      'Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
+  static const String _ordersSubCollection ='Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
   static const String _categoriesCollection = 'categories';
 
   // ========== ÓRDENES ==========
