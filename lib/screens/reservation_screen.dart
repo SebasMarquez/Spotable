@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 final Color primaryColor = const Color(0xFF1E88E5); // Azul principal
 final Color accentColor = const Color(0xFFFFC107); // Amarillo/acento
@@ -162,14 +164,12 @@ class FormularioReservaScreen extends StatefulWidget {
 
 class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _contactoController = TextEditingController();
   DateTime? _fechaHoraSeleccionada;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _nombreController.dispose();
     _contactoController.dispose();
     super.dispose();
   }
@@ -191,10 +191,16 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
           .collection('Mesas')
           .doc('Mesa_${widget.mesa.numero.toString()}');
 
+      // Obtener nombre y cedula del provider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final nombreCliente = userProvider.user?.nombre ?? '';
+      final cedulaCliente = userProvider.user?.cedula ?? '';
+
       await mesaDoc.update({
         'Estado': true,
         'datosCliente': {
-          'nombreCliente': _nombreController.text,
+          'nombreCliente': nombreCliente,
+          'cedulaCliente': cedulaCliente,
           'contactoCliente': int.tryParse(_contactoController.text),
           'fecha_HoraReservacion': Timestamp.fromDate(_fechaHoraSeleccionada!),
         },
@@ -244,6 +250,9 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
   @override
   Widget build(BuildContext context) {
     final restauranteId = ModalRoute.of(context)?.settings.arguments as String?;
+    final userProvider = Provider.of<UserProvider>(context);
+    final nombreCliente = userProvider.user?.nombre ?? '';
+    final cedulaCliente = userProvider.user?.cedula ?? '';
     return Theme(
       data: buildReservationTheme(),
       child: Scaffold(
@@ -266,17 +275,16 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
                     key: _formKey,
                     child: ListView(
                       children: [
-                        TextFormField(
-                          controller: _nombreController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre del cliente',
+                        // Mostrar el nombre y cédula del usuario logueado
+                        Card(
+                          color: Colors.grey[100],
+                          child: ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text('Nombre: $nombreCliente'),
+                            subtitle: Text('Cédula: $cedulaCliente'),
                           ),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Ingrese el nombre'
-                                      : null,
                         ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _contactoController,
                           decoration: const InputDecoration(

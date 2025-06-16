@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
 import 'menu_mngmt_screen.dart';
+import '../utils/app_colors.dart';
 
 class RestaurantScreen extends StatelessWidget {
   final String restaurantId;
@@ -73,11 +74,7 @@ class RestaurantScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.red[50]!, Colors.red[100]!],
-        ),
+        color: Colors.white, // Fondo blanco para el header
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -93,25 +90,28 @@ class RestaurantScreen extends StatelessWidget {
           if (imageUrl.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                imageUrl,
-                width: 120,
-                height: 120,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (context, error, stackTrace) => Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.red[200],
-                        borderRadius: BorderRadius.circular(16),
+              child: Container(
+                color: Colors.white, // Fondo blanco para la imagen
+                child: Image.network(
+                  imageUrl,
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (context, error, stackTrace) => Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.red[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.restaurant,
+                          size: 60,
+                          color: Colors.white,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.restaurant,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ),
+                ),
               ),
             )
           else
@@ -180,7 +180,7 @@ class RestaurantScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: Colors.white, // Fondo blanco para las action cards
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
@@ -263,6 +263,7 @@ class RestaurantScreen extends StatelessWidget {
 
                 return Card(
                   elevation: 2,
+                  color: Colors.white, // Fondo blanco para todas las cartas
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -440,7 +441,7 @@ class RestaurantScreen extends StatelessWidget {
       title: 'Pedidos Recientes',
       icon: Icons.receipt_long,
       child: SizedBox(
-        height: 240,
+        height: 320,
         child: StreamBuilder<QuerySnapshot>(
           stream: firebaseService.ordersStream(restaurantId),
           builder: (context, orderSnapshot) {
@@ -464,83 +465,211 @@ class RestaurantScreen extends StatelessWidget {
                 final total = orderData['total'] ?? 0;
                 final itemsRaw = orderData['Items'];
                 final items = itemsRaw is Map ? itemsRaw : <String, dynamic>{};
+                final estado = orderData['estado'] ?? 'Generado';
+                final cedula = orderData['cedula'] ?? '';
+                final createdAt = orderData['createdAt'];
+                String hora = '';
+                if (createdAt is Timestamp) {
+                  final dt = createdAt.toDate();
+                  hora =
+                      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                } else if (createdAt is DateTime) {
+                  hora =
+                      '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+                }
 
                 return Card(
                   elevation: 2,
+                  color: Colors.white, // Fondo blanco para todas las cartas
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Pedido #${orderData['Id'] ?? ''}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      final nombre = await _getNombreCliente(cedula);
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            backgroundColor: Colors.white, // Fondo blanco
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '\$${total.toString()}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green[700],
-                                ),
-                              ),
+                            title: const Text(
+                              'Detalle del Pedido',
+                              style: TextStyle(
+                                color: Colors.black,
+                              ), // Título negro
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...items.entries.map((entry) {
-                          final nombre = entry.key;
-                          final cantidad = entry.value;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'x$cantidad',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                Text('Cliente: ${nombre ?? 'Desconocido'}'),
+                                Text('Cédula: $cedula'),
+                                Text('Total: \$${total.toStringAsFixed(2)}'),
+                                Text('Estado: $estado'),
+                                Text('Hora: $hora'),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Items:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    nombre.toString(),
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
+                                ...items.entries.map(
+                                  (entry) =>
+                                      Text('• ${entry.key} x${entry.value}'),
                                 ),
                               ],
                             ),
+                            actions: [
+                              TextButton(
+                                onPressed: () async {
+                                  await FirebaseService.updateOrderEstado(
+                                    restaurantId: restaurantId,
+                                    orderId: order.id,
+                                    nuevoEstado: 'En cocina',
+                                  );
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text(
+                                  'En cocina',
+                                  style: TextStyle(color: AppColors.primary),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  await FirebaseService.updateOrderEstado(
+                                    restaurantId: restaurantId,
+                                    orderId: order.id,
+                                    nuevoEstado: 'Listo',
+                                  );
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text(
+                                  'Listo',
+                                  style: TextStyle(color: AppColors.primary),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text(
+                                  'Cerrar',
+                                  style: TextStyle(color: AppColors.primary),
+                                ),
+                              ),
+                            ],
                           );
-                        }),
-                      ],
+                        },
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Pedido',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  estado,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                ),
+                                tooltip: 'Eliminar pedido',
+                                onPressed: () async {
+                                  await FirebaseFirestore.instance
+                                      .collection('Restaurante')
+                                      .doc(restaurantId)
+                                      .collection('Order')
+                                      .doc(order.id)
+                                      .delete();
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ...items.entries.map((entry) {
+                            final nombre = entry.key;
+                            final cantidad = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'x$cantidad',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      nombre.toString(),
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Total: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '\$${total.toStringAsFixed(2)}', // Muestra el total guardado en firebase con el símbolo $
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -550,6 +679,16 @@ class RestaurantScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<String?> _getNombreCliente(String cedula) async {
+    if (cedula.isEmpty) return null;
+    final user =
+        await FirebaseFirestore.instance
+            .collection('Usuario')
+            .doc(cedula)
+            .get();
+    return user.data()?['nombre'] as String?;
   }
 
   Widget _buildTablesSection() {
@@ -588,6 +727,7 @@ class RestaurantScreen extends StatelessWidget {
 
                 return Card(
                   elevation: 2,
+                  color: Colors.white, // Fondo blanco para todas las cartas
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

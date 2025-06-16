@@ -10,7 +10,8 @@ class FirebaseService {
   // Colecciones
   static const String _restauranteCollection = 'Restaurante';
   static const String _menuSubCollection = 'Menu';
-  static const String _ordersSubCollection ='Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
+  static const String _ordersSubCollection =
+      'Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
   static const String _categoriesCollection = 'categories';
 
   // ========== ÓRDENES ==========
@@ -204,7 +205,9 @@ class FirebaseService {
                   .map((doc) {
                     try {
                       final item = MenuItem.fromFirestore(doc);
-                      print('Item creado exitosamente: ${item.name} (${item.available ? "Disponible" : "No disponible"})');
+                      print(
+                        'Item creado exitosamente: ${item.name} (${item.available ? "Disponible" : "No disponible"})',
+                      );
                       return item;
                     } catch (e) {
                       print('Error creando item desde documento ${doc.id}: $e');
@@ -230,7 +233,7 @@ class FirebaseService {
         .doc(id_cantina)
         .collection(_menuSubCollection)
         .where('Categoria', isEqualTo: categoria)
-        .where("available", isEqualTo: true )
+        .where("available", isEqualTo: true)
         .orderBy('name')
         .snapshots()
         .map((snapshot) {
@@ -311,39 +314,87 @@ class FirebaseService {
   }
 
   static Stream<List<String>> getCategories(String id_cantina) {
-  return _firestore
-      .collection(_restauranteCollection)
-      .doc(id_cantina)
-      .collection(_menuSubCollection)
-      .snapshots()
-      .map((snapshot) {
-        // Usar un Set para evitar duplicados
-        final categories = <String>{};
-        
-        for (var doc in snapshot.docs) {
-          try {
-            final data = doc.data();
-            // Buscar tanto 'category' como 'Categoria' para compatibilidad
-            final category = data['category'] as String? ?? 
-                           data['Categoria'] as String? ?? 
-                           data['categoria'] as String?; // Añadir más variantes si es necesario
-            
-            if (category != null && category.trim().isNotEmpty) {
-              categories.add(category.trim()); // Eliminar espacios en blanco
-            }
-          } catch (e) {
-            print('Error procesando documento ${doc.id}: $e');
-            // Continuar con el siguiente documento
-          }
-        }
-        
-        // Convertir Set a List y ordenar alfabéticamente
-        final sortedCategories = categories.toList()..sort();
-        
-        print('Categorías encontradas: $sortedCategories'); // Para debug
-        
-        return sortedCategories;
-      });
-}
+    return _firestore
+        .collection(_restauranteCollection)
+        .doc(id_cantina)
+        .collection(_menuSubCollection)
+        .snapshots()
+        .map((snapshot) {
+          // Usar un Set para evitar duplicados
+          final categories = <String>{};
 
+          for (var doc in snapshot.docs) {
+            try {
+              final data = doc.data();
+              // Buscar tanto 'category' como 'Categoria' para compatibilidad
+              final category =
+                  data['category'] as String? ??
+                  data['Categoria'] as String? ??
+                  data['categoria']
+                      as String?; // Añadir más variantes si es necesario
+
+              if (category != null && category.trim().isNotEmpty) {
+                categories.add(category.trim()); // Eliminar espacios en blanco
+              }
+            } catch (e) {
+              print('Error procesando documento ${doc.id}: $e');
+              // Continuar con el siguiente documento
+            }
+          }
+
+          // Convertir Set a List y ordenar alfabéticamente
+          final sortedCategories = categories.toList()..sort();
+
+          print('Categorías encontradas: $sortedCategories'); // Para debug
+
+          return sortedCategories;
+        });
+  }
+
+  /// Guardar usuario en la colección Usuario
+  static Future<void> saveUser({
+    required String idUsuario,
+    required String nombre,
+    required String cedula,
+  }) async {
+    try {
+      await _firestore.collection('Usuario').doc(idUsuario).set({
+        'nombre': nombre,
+        'cedula': cedula,
+      });
+      print('✅ Usuario guardado en Firebase: $idUsuario');
+    } catch (e) {
+      print('❌ Error guardando usuario: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtener usuario por cédula
+  static Future<Map<String, dynamic>?> getUserByCedula(String cedula) async {
+    try {
+      final doc = await _firestore.collection('Usuario').doc(cedula).get();
+      if (doc.exists) {
+        return doc.data();
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error buscando usuario por cédula: $e');
+      return null;
+    }
+  }
+
+  /// Actualizar el estado de una orden
+  static Future<void> updateOrderEstado({
+    required String restaurantId,
+    required String orderId,
+    required String nuevoEstado,
+  }) async {
+    await _firestore
+        .collection(_restauranteCollection)
+        .doc(restaurantId)
+        .collection(_ordersSubCollection)
+        .doc(orderId)
+        .update({'estado': nuevoEstado});
+  }
 }
