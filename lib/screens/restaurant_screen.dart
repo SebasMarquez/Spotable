@@ -26,8 +26,15 @@ class RestaurantScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Panel Restaurante'),
+            title: const Text('Panel Restaurante'),
             backgroundColor: Colors.red[600],
+            leading:
+                Navigator.of(context).canPop()
+                    ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                    : null,
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -70,8 +77,8 @@ class RestaurantScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  height: 300, // Altura fija para el scroll
+                SizedBox(
+                  height: 220, // Altura fija para el scroll, menos separación
                   child: StreamBuilder<QuerySnapshot>(
                     stream: firebaseService.ordersStream(restaurantId),
                     builder: (context, orderSnapshot) {
@@ -99,12 +106,10 @@ class RestaurantScreen extends StatelessWidget {
                           final order = orders[index];
                           final orderData =
                               order.data() as Map<String, dynamic>;
-                          final total = orderData['Total'] ?? 0;
+                          final total = orderData['total'] ?? 0;
                           final itemsRaw = orderData['Items'];
                           final items =
-                              itemsRaw is Map
-                                  ? [itemsRaw]
-                                  : (itemsRaw is List ? itemsRaw : []);
+                              itemsRaw is Map ? itemsRaw : <String, dynamic>{};
                           return Card(
                             elevation: 1,
                             child: Padding(
@@ -119,40 +124,32 @@ class RestaurantScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  ...items.map((item) {
-                                    if (item is Map<String, dynamic>) {
-                                      final name =
-                                          item['Name'] ?? item['name'] ?? '';
-                                      final qty =
-                                          item['Cantidad'] ??
-                                          item['cantidad'] ??
-                                          0;
-                                      return Row(
-                                        children: [
-                                          Text(
-                                            'x$qty',
+                                  ...items.entries.map((entry) {
+                                    final nombre = entry.key;
+                                    final cantidad = entry.value;
+                                    return Row(
+                                      children: [
+                                        Text(
+                                          'x$cantidad',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            nombre.toString(),
                                             style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
+                                              fontSize: 15,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              name.toString(),
-                                              style: const TextStyle(
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    } else {
-                                      return const SizedBox.shrink();
-                                    }
+                                        ),
+                                      ],
+                                    );
                                   }),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'Total: \$${total.toStringAsFixed(2)}',
+                                    'Total: \$${total.toString()}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -166,9 +163,9 @@ class RestaurantScreen extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 18),
 
-                // Sección de mesas (vacía)
+                // Sección de mesas
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -176,14 +173,84 @@ class RestaurantScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 220, // Altura fija para el scroll, menos separación
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream:
+                        FirebaseFirestore.instance
+                            .collection('Restaurante')
+                            .doc(restaurantId)
+                            .collection('Mesas')
+                            .snapshots(),
+                    builder: (context, mesaSnapshot) {
+                      if (mesaSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!mesaSnapshot.hasData ||
+                          mesaSnapshot.data!.docs.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'No hay mesas registradas.',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                      final mesas = mesaSnapshot.data!.docs;
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: mesas.length,
+                        separatorBuilder: (_, __) => const Divider(),
+                        itemBuilder: (context, index) {
+                          final mesa = mesas[index];
+                          final mesaData = mesa.data() as Map<String, dynamic>;
+                          final numero = mesaData['numero'] ?? '';
+                          final estado = mesaData['Estado'] ?? false;
+                          return Card(
+                            elevation: 1,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    estado
+                                        ? Icons.event_seat
+                                        : Icons.event_seat_outlined,
+                                    color: estado ? Colors.red : Colors.green,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Mesa $numero',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      estado ? 'Ocupada' : 'Libre',
+                                      style: TextStyle(
+                                        color:
+                                            estado ? Colors.red : Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  child: const Center(child: Text('Próximamente...')),
                 ),
               ],
             ),

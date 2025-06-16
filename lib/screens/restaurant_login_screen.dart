@@ -38,6 +38,13 @@ class _RestaurantLoginScreenState extends State<RestaurantLoginScreen> {
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Color(0xFFB71C1C)),
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
       ),
       body: Container(
         color: Colors.white, // Fondo blanco

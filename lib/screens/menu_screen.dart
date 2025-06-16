@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:restaurant_app/screens/reservation_screen.dart';
 import '../models/menu_item.dart';
 import '../services/cart_service.dart';
 import '../widgets/custom_app_bar.dart';
@@ -7,14 +8,57 @@ import '../widgets/menu_item_card.dart';
 import '../utils/app_colors.dart';
 import 'detail_screen.dart';
 import 'cart_screen.dart';
+import '../services/firebase_service.dart';
 
-class MenuScreen extends StatelessWidget {
+class MenuScreen extends StatefulWidget {
+  final String restaurantId;
+  const MenuScreen({Key? key, required this.restaurantId}) : super(key: key);
+
+  @override
+  _MenuScreenState createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  String selectedCategory = 'Todos';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkRestaurantSetup();
+    _setupCartService();
+  }
+
+  Future<void> _checkRestaurantSetup() async {
+    final exists = await FirebaseService.checkRestaurantExists(
+      widget.restaurantId,
+    );
+    print('Resultado de verificación del restaurante: $exists');
+  }
+
+  void _setupCartService() {
+    final cartService = Provider.of<CartService>(context, listen: false);
+    cartService.setCurrentRestaurant(widget.restaurantId);
+    print('🏪 Restaurante establecido en CartService: ${widget.restaurantId}');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Restaurante App'),
+      appBar: AppBar(
+        title: const Text('Restaurante App'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: Column(
         children: [
+          buildReservationButton(context, widget.restaurantId),
+          _buildCategorySelector(),
           Expanded(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -30,31 +74,7 @@ class MenuScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 16),
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 0.8,
-                      ),
-                      itemCount: MenuItem.getAllMenuItems().length,
-                      itemBuilder: (context, index) {
-                        final menuItem = MenuItem.getAllMenuItems()[index];
-                        return MenuItemCard(
-                          menuItem: menuItem,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => DetailScreen(menuItem: menuItem),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
+                  Expanded(child: _buildMenuGrid()),
                 ],
               ),
             ),
@@ -62,6 +82,127 @@ class MenuScreen extends StatelessWidget {
           _buildBottomCartButton(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    return Container(
+      height: 50,
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: StreamBuilder<List<String>>(
+        stream: FirebaseService.getCategories(widget.restaurantId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          final categories = ['Todos', ...snapshot.data!];
+
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              final isSelected = selectedCategory == category;
+
+              return Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(category),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      selectedCategory = category;
+                    });
+                  },
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMenuGrid() {
+    return StreamBuilder<List<MenuItem>>(
+      stream:
+          selectedCategory == 'Todos'
+              ? FirebaseService.getMenuItems(widget.restaurantId)
+              : FirebaseService.getMenuItemsByCategory(
+                widget.restaurantId,
+                selectedCategory,
+              ),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text('Error al cargar el menú'),
+                SizedBox(height: 8),
+                Text(
+                  'Error: ${snapshot.error}', // Mostrar el error específico
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                ElevatedButton(
+                  onPressed: () => setState(() {}),
+                  child: Text('Reintentar'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final menuItems = snapshot.data ?? [];
+
+        if (menuItems.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.restaurant_menu, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No hay items disponibles'),
+              ],
+            ),
+          );
+        }
+
+        return GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.71,
+          ),
+          itemCount: menuItems.length,
+          itemBuilder: (context, index) {
+            final menuItem = menuItems[index];
+            return MenuItemCard(
+              menuItem: menuItem,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailScreen(menuItem: menuItem),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -78,7 +219,11 @@ class MenuScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => CartScreen()),
+                MaterialPageRoute(
+                  builder:
+                      (context) =>
+                          CartScreen(restaurantId: widget.restaurantId),
+                ),
               );
             },
             style: ElevatedButton.styleFrom(
@@ -96,10 +241,7 @@ class MenuScreen extends StatelessWidget {
                 SizedBox(width: 8),
                 Text(
                   'Ver Carrito',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 if (cartService.totalItems > 0) ...[
                   SizedBox(width: 8),
@@ -126,4 +268,39 @@ class MenuScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// Cambia la función buildReservationButton para aceptar restaurantId
+typedef BuildReservationButton = Widget Function(BuildContext, String);
+
+Widget buildReservationButton(BuildContext context, String restaurantId) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 18),
+    child: ElevatedButton.icon(
+      icon: Icon(Icons.calendar_today, color: Colors.white),
+      label: const Text(
+        'Reservar Mesa',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ReservationScreen(restauranteId: restaurantId),
+          ),
+        );
+      },
+    ),
+  );
 }

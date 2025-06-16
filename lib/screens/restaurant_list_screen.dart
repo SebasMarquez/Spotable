@@ -11,7 +11,17 @@ class RestaurantListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Selecciona un restaurante')),
+      appBar: AppBar(
+        title: const Text('Selecciona un restaurante'),
+        backgroundColor: Colors.white,
+        leading:
+            Navigator.of(context).canPop()
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+                : null,
+      ),
       body: FutureBuilder<List<Restaurant>>(
         future: FirebaseService().getRestaurants(),
         builder: (context, snapshot) {

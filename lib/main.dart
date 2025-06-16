@@ -53,8 +53,7 @@ class _RootNavigatorState extends State<_RootNavigator> {
           _screen = RestaurantListScreen(
             onRestaurantSelected: (Restaurant restaurant) {
               setState(() {
-                // Aquí puedes pasar el restaurante seleccionado a MenuScreen si lo necesitas
-                _screen = MenuScreen();
+                _screen = MenuScreen(restaurantId: restaurant.id);
               });
             },
           );
