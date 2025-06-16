@@ -10,6 +10,7 @@ import 'firebase_options.dart';
 import 'screens/restaurant_list_screen.dart';
 import 'models/restaurant.dart';
 import 'screens/restaurant_login_screen.dart';
+import 'screens/menu_mngmt_screen.dart'; 
 import 'services/firebase_service.dart';
 
 void main() async {

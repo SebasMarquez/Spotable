@@ -10,8 +10,7 @@ class FirebaseService {
   // Colecciones
   static const String _restauranteCollection = 'Restaurante';
   static const String _menuSubCollection = 'Menu';
-  static const String _ordersSubCollection =
-      'Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
+  static const String _ordersSubCollection ='Order'; // Cambia a 'ordenes' si ese es el nombre en tu Firebase
   static const String _categoriesCollection = 'categories';
 
   // ========== ÓRDENES ==========
@@ -165,6 +164,7 @@ class FirebaseService {
         .collection(_restauranteCollection)
         .doc(id_cantina)
         .collection(_menuSubCollection)
+        .where("available", isEqualTo: true)
         .snapshots()
         .map((snapshot) {
           print('Documentos encontrados: ${snapshot.docs.length}');
@@ -190,6 +190,36 @@ class FirebaseService {
         });
   }
 
+  static Stream<List<MenuItem>> getAllMenuItems(String id_cantina) {
+    return _firestore
+        .collection(_restauranteCollection)
+        .doc(id_cantina)
+        .collection(_menuSubCollection)
+        .snapshots()
+        .map((snapshot) {
+          print('Documentos encontrados (todos): ${snapshot.docs.length}');
+
+          final items =
+              snapshot.docs
+                  .map((doc) {
+                    try {
+                      final item = MenuItem.fromFirestore(doc);
+                      print('Item creado exitosamente: ${item.name} (${item.available ? "Disponible" : "No disponible"})');
+                      return item;
+                    } catch (e) {
+                      print('Error creando item desde documento ${doc.id}: $e');
+                      return null;
+                    }
+                  })
+                  .where((item) => item != null)
+                  .cast<MenuItem>()
+                  .toList();
+
+          print('Items finales (todos): ${items.length}');
+          return items;
+        });
+  }
+
   /// Obtener items por categoría de un restaurante especifico
   static Stream<List<MenuItem>> getMenuItemsByCategory(
     String id_cantina,
@@ -200,6 +230,7 @@ class FirebaseService {
         .doc(id_cantina)
         .collection(_menuSubCollection)
         .where('Categoria', isEqualTo: categoria)
+        .where("available", isEqualTo: true )
         .orderBy('name')
         .snapshots()
         .map((snapshot) {
@@ -280,15 +311,39 @@ class FirebaseService {
   }
 
   static Stream<List<String>> getCategories(String id_cantina) {
-    return _firestore
-        .collection(_restauranteCollection)
-        .doc(id_cantina)
-        .collection(_categoriesCollection)
-        .orderBy('name')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => doc['name'] as String).toList(),
-        );
-  }
+  return _firestore
+      .collection(_restauranteCollection)
+      .doc(id_cantina)
+      .collection(_menuSubCollection)
+      .snapshots()
+      .map((snapshot) {
+        // Usar un Set para evitar duplicados
+        final categories = <String>{};
+        
+        for (var doc in snapshot.docs) {
+          try {
+            final data = doc.data();
+            // Buscar tanto 'category' como 'Categoria' para compatibilidad
+            final category = data['category'] as String? ?? 
+                           data['Categoria'] as String? ?? 
+                           data['categoria'] as String?; // Añadir más variantes si es necesario
+            
+            if (category != null && category.trim().isNotEmpty) {
+              categories.add(category.trim()); // Eliminar espacios en blanco
+            }
+          } catch (e) {
+            print('Error procesando documento ${doc.id}: $e');
+            // Continuar con el siguiente documento
+          }
+        }
+        
+        // Convertir Set a List y ordenar alfabéticamente
+        final sortedCategories = categories.toList()..sort();
+        
+        print('Categorías encontradas: $sortedCategories'); // Para debug
+        
+        return sortedCategories;
+      });
+}
+
 }

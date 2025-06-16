@@ -57,7 +57,6 @@ class _MenuScreenState extends State<MenuScreen> {
       ),
       body: Column(
         children: [
-          buildReservationButton(context, widget.restaurantId),
           _buildCategorySelector(),
           Expanded(
             child: Padding(
@@ -271,36 +270,3 @@ class _MenuScreenState extends State<MenuScreen> {
 }
 
 // Cambia la función buildReservationButton para aceptar restaurantId
-typedef BuildReservationButton = Widget Function(BuildContext, String);
-
-Widget buildReservationButton(BuildContext context, String restaurantId) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 18),
-    child: ElevatedButton.icon(
-      icon: Icon(Icons.calendar_today, color: Colors.white),
-      label: const Text(
-        'Reservar Mesa',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-        ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => ReservationScreen(restauranteId: restaurantId),
-          ),
-        );
-      },
-    ),
-  );
-}
