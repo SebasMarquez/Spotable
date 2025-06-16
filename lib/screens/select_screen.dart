@@ -21,19 +21,32 @@ class MainScreen extends StatelessWidget {
     );
   }
 
+  void _navigateToWelcome(BuildContext context) {
+    // Opción 1: Navegar al estado inicial limpiando toda la pila de navegación
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/', // Ruta de la pantalla de bienvenida inicial
+      (Route<dynamic> route) => false,
+    );
+
+    // Opción 2: Si no usas rutas nombradas, usa esto en su lugar:
+    // Navigator.pushAndRemoveUntil(
+    //   context,
+    //   MaterialPageRoute(builder: (context) => WelcomeScreen()), // Reemplaza con tu pantalla de bienvenida
+    //   (Route<dynamic> route) => false,
+    // );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seleccionar'),
         backgroundColor: Colors.white,
-        leading:
-            Navigator.of(context).canPop()
-                ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-                : null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => _navigateToWelcome(context),
+        ),
       ),
       body: Center(
         child: Padding(

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:restaurant_app/screens/restaurant_screen.dart';
 import '../services/firebase_service.dart';
 import '../models/restaurant.dart';
+import '../screens/select_option.dart';
+import '../screens/welcome_screen.dart';
+import '../screens/restaurant_login_screen.dart';
 
 class RestaurantListScreen extends StatelessWidget {
-  final Function(Restaurant) onRestaurantSelected;
+  final Function(Restaurant)? onRestaurantSelected;
 
-  const RestaurantListScreen({Key? key, required this.onRestaurantSelected})
+  const RestaurantListScreen({Key? key, this.onRestaurantSelected})
     : super(key: key);
 
   @override
@@ -14,13 +18,45 @@ class RestaurantListScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Selecciona un restaurante'),
         backgroundColor: Colors.white,
-        leading:
-            Navigator.of(context).canPop()
-                ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-                : null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Navegar de vuelta a WelcomeScreen con los callbacks correctos
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder:
+                    (context) => WelcomeScreen(
+                      onUserTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RestaurantListScreen(),
+                          ),
+                        );
+                      },
+                      onRestaurantTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => RestaurantLoginScreen(
+                                  onLogin: (String restaurantId) {
+                                    // Manejar el login exitoso del restaurante
+                                    _handleRestaurantLogin(
+                                      context,
+                                      restaurantId,
+                                    );
+                                  },
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+              ),
+              (route) => false,
+            );
+          },
+        ),
       ),
       body: FutureBuilder<List<Restaurant>>(
         future: FirebaseService().getRestaurants(),
@@ -47,13 +83,37 @@ class RestaurantListScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final restaurant = restaurants[index];
                 return GestureDetector(
-                  onTap: () => onRestaurantSelected(restaurant),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                SelectOptionScreen(restaurant: restaurant),
+                      ),
+                    );
+                  },
                   child: RestaurantCard(restaurant: restaurant),
                 );
               },
             ),
           );
         },
+      ),
+    );
+  }
+
+  // Método separado para manejar el login del restaurante
+  void _handleRestaurantLogin(BuildContext context, String restaurantId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Login exitoso para restaurante ID: $restaurantId'),
+      ),
+    );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RestaurantScreen(restaurantId: restaurantId),
       ),
     );
   }
@@ -95,7 +155,7 @@ class RestaurantCard extends StatelessWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
-                color: Color(0xFFB71C1C), // Rojo oscuro como en el menú
+                color: Color(0xFFB71C1C),
               ),
               textAlign: TextAlign.center,
               maxLines: 2,

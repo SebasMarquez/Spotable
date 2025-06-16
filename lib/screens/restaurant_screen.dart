@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
-import 'menu_mngmt_screen.dart'; // Nueva pantalla que crearemos
+import 'menu_mngmt_screen.dart';
 
 class RestaurantScreen extends StatelessWidget {
   final String restaurantId;
 
   const RestaurantScreen({Key? key, required this.restaurantId})
-      : super(key: key);
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +30,13 @@ class RestaurantScreen extends StatelessWidget {
             title: const Text('Panel Restaurante'),
             backgroundColor: Colors.red[600],
             elevation: 0,
-            leading: Navigator.of(context).canPop()
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
-                  )
-                : null,
+            leading:
+                Navigator.of(context).canPop()
+                    ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                    : null,
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -48,6 +49,10 @@ class RestaurantScreen extends StatelessWidget {
 
                 // Cards de navegación rápida
                 _buildQuickActions(context),
+                const SizedBox(height: 24),
+
+                // Sección de reservaciones
+                _buildReservationsSection(),
                 const SizedBox(height: 24),
 
                 // Sección de pedidos realizados
@@ -93,15 +98,19 @@ class RestaurantScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Container(
+                errorBuilder:
+                    (context, error, stackTrace) => Container(
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
                         color: Colors.red[200],
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.restaurant, size: 60, color: Colors.white),
+                      child: const Icon(
+                        Icons.restaurant,
+                        size: 60,
+                        color: Colors.white,
+                      ),
                     ),
               ),
             )
@@ -113,7 +122,11 @@ class RestaurantScreen extends StatelessWidget {
                 color: Colors.red[200],
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.restaurant, size: 60, color: Colors.white),
+              child: const Icon(
+                Icons.restaurant,
+                size: 60,
+                color: Colors.white,
+              ),
             ),
           const SizedBox(height: 16),
           Text(
@@ -143,7 +156,9 @@ class RestaurantScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => MenuManagementScreen(restaurantId: restaurantId),
+                builder:
+                    (context) =>
+                        MenuManagementScreen(restaurantId: restaurantId),
               ),
             );
           },
@@ -185,16 +200,239 @@ class RestaurantScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildReservationsSection() {
+    return _buildSection(
+      title: 'Reservaciones Activas',
+      icon: Icons.event_seat,
+      child: SizedBox(
+        height: 280,
+        child: StreamBuilder<QuerySnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('Restaurante')
+                  .doc(restaurantId)
+                  .collection('Mesas')
+                  .where('Estado', isEqualTo: true)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return _buildEmptyState(
+                icon: Icons.event_seat_outlined,
+                message: 'No hay reservaciones activas.',
+              );
+            }
+            final reservedTables = snapshot.data!.docs;
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: reservedTables.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final tableDoc = reservedTables[index];
+                final tableData = tableDoc.data() as Map<String, dynamic>;
+                final numero = tableData['numero'] ?? '';
+                final datosCliente =
+                    tableData['datosCliente'] as Map<String, dynamic>?;
+
+                if (datosCliente == null) return const SizedBox.shrink();
+
+                final nombreCliente =
+                    datosCliente['nombreCliente'] ?? 'Sin nombre';
+                final contactoCliente =
+                    datosCliente['contactoCliente']?.toString() ?? '';
+                final fechaHoraReservacion =
+                    datosCliente['fecha_HoraReservacion'] as Timestamp?;
+
+                String fechaHoraTexto = 'Sin fecha';
+                if (fechaHoraReservacion != null) {
+                  final fechaHora = fechaHoraReservacion.toDate();
+                  fechaHoraTexto =
+                      '${fechaHora.day}/${fechaHora.month}/${fechaHora.year} ${fechaHora.hour}:${fechaHora.minute.toString().padLeft(2, '0')}';
+                }
+
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.event_seat,
+                                    color: Colors.red[600],
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Mesa $numero',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              onPressed:
+                                  () => _showClearReservationDialog(
+                                    context,
+                                    tableDoc.id,
+                                    numero.toString(),
+                                  ),
+                              icon: Icon(Icons.clear, color: Colors.red[600]),
+                              tooltip: 'Limpiar reservación',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildReservationDetail(
+                          Icons.person,
+                          'Cliente',
+                          nombreCliente,
+                        ),
+                        const SizedBox(height: 8),
+                        if (contactoCliente.isNotEmpty)
+                          _buildReservationDetail(
+                            Icons.phone,
+                            'Contacto',
+                            contactoCliente,
+                          ),
+                        if (contactoCliente.isNotEmpty)
+                          const SizedBox(height: 8),
+                        _buildReservationDetail(
+                          Icons.schedule,
+                          'Fecha y Hora',
+                          fechaHoraTexto,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReservationDetail(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          label + ': ',
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[700],
+            fontSize: 14,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showClearReservationDialog(
+    BuildContext context,
+    String docId,
+    String mesaNumero,
+  ) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Limpiar Reservación'),
+          content: Text(
+            '¿Está seguro que desea limpiar la reservación de la Mesa $mesaNumero?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _clearReservation(context, docId, mesaNumero);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Limpiar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _clearReservation(
+    BuildContext context,
+    String docId,
+    String mesaNumero,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('Restaurante')
+          .doc(restaurantId)
+          .collection('Mesas')
+          .doc(docId)
+          .update({'Estado': false, 'datosCliente': FieldValue.delete()});
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Reservación de Mesa $mesaNumero limpiada exitosamente',
+            ),
+            backgroundColor: Colors.green[600],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al limpiar reservación: $e'),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildOrdersSection(FirebaseService firebaseService) {
@@ -226,7 +464,7 @@ class RestaurantScreen extends StatelessWidget {
                 final total = orderData['total'] ?? 0;
                 final itemsRaw = orderData['Items'];
                 final items = itemsRaw is Map ? itemsRaw : <String, dynamic>{};
-                
+
                 return Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -321,11 +559,12 @@ class RestaurantScreen extends StatelessWidget {
       child: SizedBox(
         height: 240,
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('Restaurante')
-              .doc(restaurantId)
-              .collection('Mesas')
-              .snapshots(),
+          stream:
+              FirebaseFirestore.instance
+                  .collection('Restaurante')
+                  .doc(restaurantId)
+                  .collection('Mesas')
+                  .snapshots(),
           builder: (context, mesaSnapshot) {
             if (mesaSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -346,7 +585,7 @@ class RestaurantScreen extends StatelessWidget {
                 final mesaData = mesa.data() as Map<String, dynamic>;
                 final numero = mesaData['numero'] ?? '';
                 final estado = mesaData['Estado'] ?? false;
-                
+
                 return Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -359,13 +598,13 @@ class RestaurantScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: estado 
-                                ? Colors.red[100] 
-                                : Colors.green[100],
+                            color: estado ? Colors.red[100] : Colors.green[100],
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
-                            estado ? Icons.event_seat : Icons.event_seat_outlined,
+                            estado
+                                ? Icons.event_seat
+                                : Icons.event_seat_outlined,
                             color: estado ? Colors.red[600] : Colors.green[600],
                             size: 24,
                           ),
@@ -385,7 +624,10 @@ class RestaurantScreen extends StatelessWidget {
                               Text(
                                 estado ? 'Ocupada' : 'Disponible',
                                 style: TextStyle(
-                                  color: estado ? Colors.red[600] : Colors.green[600],
+                                  color:
+                                      estado
+                                          ? Colors.red[600]
+                                          : Colors.green[600],
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
                                 ),
@@ -433,26 +675,16 @@ class RestaurantScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String message,
-  }) {
+  Widget _buildEmptyState({required IconData icon, required String message}) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 48,
-            color: Colors.grey[400],
-          ),
+          Icon(icon, size: 48, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
         ],
