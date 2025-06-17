@@ -9,6 +9,7 @@ import '../utils/app_colors.dart';
 import 'detail_screen.dart';
 import 'cart_screen.dart';
 import '../services/firebase_service.dart';
+import '../widgets/orders_footer.dart';
 
 class MenuScreen extends StatefulWidget {
   final String restaurantId;
@@ -81,6 +82,7 @@ class _MenuScreenState extends State<MenuScreen> {
           _buildBottomCartButton(context),
         ],
       ),
+      bottomNavigationBar: const OrdersFooter(),
     );
   }
 

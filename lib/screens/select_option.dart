@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/restaurant.dart';
 import 'reservation_screen.dart';
 import 'menu_screen.dart';
+import '../widgets/orders_footer.dart';
 
 class SelectOptionScreen extends StatelessWidget {
   final Restaurant restaurant;
@@ -134,6 +135,7 @@ class SelectOptionScreen extends StatelessWidget {
           ],
         ),
       ),
+      bottomNavigationBar: const OrdersFooter(),
     );
   }
 

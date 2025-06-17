@@ -5,6 +5,7 @@ import '../models/restaurant.dart';
 import '../screens/select_option.dart';
 import '../screens/welcome_screen.dart';
 import '../screens/restaurant_login_screen.dart';
+import '../widgets/orders_footer.dart';
 
 class RestaurantListScreen extends StatelessWidget {
   final Function(Restaurant)? onRestaurantSelected;
@@ -100,6 +101,7 @@ class RestaurantListScreen extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const OrdersFooter(),
     );
   }
 

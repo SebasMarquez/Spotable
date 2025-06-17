@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/cart_item.dart';
 import '../models/menu_item.dart';
 import '../models/order.dart';
+import '../providers/user_provider.dart';
 import 'firebase_service.dart';
 
 class CartService extends ChangeNotifier {
@@ -100,17 +103,18 @@ class CartService extends ChangeNotifier {
   int getItemQuantity(String menuItemId) {
     final item = _cartItems.firstWhere(
       (item) => item.menuItem.id == menuItemId,
-      orElse: () => CartItem(
-        menuItem: MenuItem(
-          id: 'not-found', 
-          name: '', 
-          price: 0,
-          image: '',         // Parámetro requerido agregado
-          description: '',   // Parámetro requerido agregado
-          category: '',      // Parámetro requerido agregado
-        ), 
-        quantity: 0
-      ),
+      orElse:
+          () => CartItem(
+            menuItem: MenuItem(
+              id: 'not-found',
+              name: '',
+              price: 0,
+              image: '', // Parámetro requerido agregado
+              description: '', // Parámetro requerido agregado
+              category: '', // Parámetro requerido agregado
+            ),
+            quantity: 0,
+          ),
     );
     return item.quantity;
   }
@@ -183,7 +187,7 @@ class CartService extends ChangeNotifier {
   }
 
   /// Crear orden simple (solo items y total)
-  Future<bool> placeOrderSimple() async {
+  Future<bool> placeOrderSimple(BuildContext context) async {
     if (_currentRestaurantId == null) {
       print('❌ Error: No se ha establecido el ID del restaurante');
       return false;
@@ -204,8 +208,18 @@ class CartService extends ChangeNotifier {
         itemsMap[cartItem.menuItem.name] = cartItem.quantity;
       }
 
-      // Crear la orden con solo la estructura básica que necesitas
-      Map<String, dynamic> orderData = {'Items': itemsMap, 'total': totalPrice};
+      // Obtener cedula del provider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final cedulaCliente = userProvider.user?.cedula ?? '';
+
+      // Crear la orden con los campos requeridos
+      Map<String, dynamic> orderData = {
+        'Items': itemsMap,
+        'total': totalPrice,
+        'cedula': cedulaCliente,
+        'estado': 'Generado',
+        'createdAt': DateTime.now(),
+      };
 
       // Guardar en Firebase usando el nuevo método
       final orderId = await FirebaseService.createOrder(
@@ -216,8 +230,8 @@ class CartService extends ChangeNotifier {
       print('✅ Orden creada exitosamente con ID: $orderId');
       print('🏪 Restaurante: $_currentRestaurantId');
       print('📋 Items: ${itemsMap.toString()}');
-      print('💰 Total: \${totalPrice.toStringAsFixed(2)}');
-      print('🕒 Timestamp: ${DateTime.now().toIso8601String()}');
+      print('💰 Total: \\${totalPrice.toStringAsFixed(2)}');
+      print('🕒 Timestamp: \\${DateTime.now().toIso8601String()}');
 
       // Limpiar el carrito después de crear la orden exitosamente
       clearCart();

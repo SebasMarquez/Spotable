@@ -183,7 +183,7 @@ class CartScreen extends StatelessWidget {
                   }
 
                   // Realizar la orden
-                  final success = await cartService.placeOrderSimple();
+                  final success = await cartService.placeOrderSimple(context);
 
                   if (success) {
                     Navigator.pop(context);
