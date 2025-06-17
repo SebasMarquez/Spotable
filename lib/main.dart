@@ -61,8 +61,64 @@ class _RootNavigator extends StatefulWidget {
 class _RootNavigatorState extends State<_RootNavigator> {
   AppScreen _currentScreen = AppScreen.welcome;
   String? _selectedRestaurantId;
+  UserProvider? _userProvider; // Added
+
+  @override
+  void didChangeDependencies() {
+    // Changed from initState
+    super.didChangeDependencies();
+    final userProvider = Provider.of<UserProvider>(context);
+    if (_userProvider != userProvider) {
+      _userProvider?.removeListener(_onUserChanged);
+      _userProvider = userProvider;
+      _userProvider?.addListener(_onUserChanged);
+      // Initialize screen based on current user state
+      _onUserChanged(); // Call it once to set initial screen
+    }
+  }
+
+  @override
+  void dispose() {
+    _userProvider?.removeListener(_onUserChanged); // Added
+    super.dispose();
+  }
+
+  void _onUserChanged() {
+    // Added listener method
+    final user = _userProvider?.user;
+    if (user != null) {
+      if (_currentScreen == AppScreen.welcome ||
+          _currentScreen == AppScreen.userIdentification) {
+        setState(() {
+          _currentScreen = AppScreen.restaurantList;
+        });
+      }
+    } else {
+      // If user is null, and we are not already on a public screen like login
+      // ensure we go to welcome.
+      if (_currentScreen != AppScreen.welcome &&
+          _currentScreen != AppScreen.restaurantLogin &&
+          _currentScreen !=
+              AppScreen
+                  .userIdentification // Allow user identification to proceed
+                  ) {
+        setState(() {
+          _currentScreen = AppScreen.welcome;
+          _selectedRestaurantId = null; // Clear selected restaurant on logout
+        });
+      } else if (_currentScreen == AppScreen.userIdentification &&
+          ModalRoute.of(context)?.isCurrent != true) {
+        // If UserIdentificationScreen was popped without login, ensure we are on welcome
+        // This case might be tricky if UserIdentificationScreen is popped by back button
+        // For now, primary navigation to welcome on logout is handled above.
+      }
+    }
+  }
 
   void showWelcomeScreen() {
+    // This can be simplified or removed if _onUserChanged handles initial state
+    // For now, ensure UserProvider is cleared if we explicitly show welcome
+    Provider.of<UserProvider>(context, listen: false).clearUser();
     setState(() {
       _currentScreen = AppScreen.welcome;
       _selectedRestaurantId = null;
@@ -70,23 +126,25 @@ class _RootNavigatorState extends State<_RootNavigator> {
   }
 
   Widget _buildScreen() {
+    // Potentially add a check here for userProvider.user and navigate
+    // but _onUserChanged should handle it.
+
     switch (_currentScreen) {
       case AppScreen.welcome:
         return WelcomeScreen(
-          onUserTap: () async {
-            final result = await Navigator.of(context).push(
+          onUserTap: () {
+            // Simplified
+            // No longer need to await result, _onUserChanged will react
+            Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => const UserIdentificationScreen(),
               ),
             );
-            if (result != null &&
-                result is Map &&
-                result['nombre'] != null &&
-                result['cedula'] != null) {
-              setState(() {
-                _currentScreen = AppScreen.restaurantList;
-              });
-            }
+            // We can set _currentScreen to userIdentification here if we want
+            // to prevent WelcomeScreen from rebuilding immediately,
+            // or handle it by ensuring UserIdentificationScreen is opaque
+            // and _onUserChanged correctly transitions from it.
+            // For now, let UserIdentificationScreen be pushed on top.
           },
           onRestaurantTap: () {
             setState(() {
@@ -95,7 +153,28 @@ class _RootNavigatorState extends State<_RootNavigator> {
           },
         );
       case AppScreen.userIdentification:
-        return const SizedBox.shrink();
+        // This case should ideally not be directly managed by _currentScreen
+        // if UserIdentificationScreen is pushed as a route.
+        // If it's reached, it means UserIdentificationScreen was popped without login.
+        // _onUserChanged should ensure we go to Welcome.
+        // For safety, returning WelcomeScreen or a loader.
+        // However, UserIdentificationScreen will push RestaurantListScreen or pop.
+        // If it pops without login, the listener should take us to Welcome.
+        // So, this state might not be actively used if logic is correct.
+        // Let's return a placeholder, or ensure it navigates away.
+        // For now, if we are here, it means no user, so welcome.
+        // This logic is a bit complex due to _currentScreen and Navigator mixing.
+        // The listener on UserProvider is the more robust approach.
+        // If _currentScreen is userIdentification, it means we expect that screen to be active.
+        // However, UserIdentificationScreen itself handles its presentation.
+        // This path in _buildScreen might be redundant if UserIdentificationScreen is pushed.
+        // Let's assume if _currentScreen is userIdentification, it's a temporary state
+        // before UserIdentificationScreen is pushed or after it's popped without login.
+        // The listener should handle the transition back to welcome if popped without login.
+        return const UserIdentificationScreen(); // Or a loader, or WelcomeScreen
+      // This state needs careful thought.
+      // Given UserIdentificationScreen pushes/pops,
+      // _RootNavigator might not need this explicit state.
       case AppScreen.restaurantList:
         return RestaurantListScreen(
           onRestaurantSelected: (Restaurant restaurant) {
@@ -145,8 +224,6 @@ class _RootNavigatorState extends State<_RootNavigator> {
         );
       case AppScreen.restaurant:
         return RestaurantScreen(restaurantId: _selectedRestaurantId!);
-      default:
-        return const Center(child: CircularProgressIndicator());
     }
   }
 
@@ -158,7 +235,8 @@ class _RootNavigatorState extends State<_RootNavigator> {
   @override
   void initState() {
     super.initState();
-    showWelcomeScreen();
+    // showWelcomeScreen(); // Commented out, didChangeDependencies will handle initial setup
+    // Initial listener setup will be in didChangeDependencies
   }
 }
 

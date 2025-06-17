@@ -4,6 +4,7 @@ import '../services/firebase_service.dart';
 import '../providers/user_provider.dart';
 import '../models/user_data.dart';
 import '../utils/app_colors.dart';
+import '../screens/restaurant_list_screen.dart'; // Added import
 
 class UserIdentificationScreen extends StatefulWidget {
   const UserIdentificationScreen({Key? key}) : super(key: key);
@@ -99,10 +100,14 @@ class _UserIdentificationScreenState extends State<UserIdentificationScreen> {
                         context,
                         listen: false,
                       ).setUser(UserData(nombre: nombre, cedula: cedula));
-                      Navigator.pop(context, {
-                        'nombre': nombre,
-                        'cedula': cedula,
-                      });
+                      // Navegar a la pantalla de lista de restaurantes
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RestaurantListScreen(),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
                     }
                   },
                   child: const Text(
@@ -165,10 +170,14 @@ class _UserIdentificationScreenState extends State<UserIdentificationScreen> {
                           cedula: userDoc['cedula'],
                         ),
                       );
-                      Navigator.pop(context, {
-                        'nombre': userDoc['nombre'],
-                        'cedula': userDoc['cedula'],
-                      });
+                      // Navegar a la pantalla de lista de restaurantes
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RestaurantListScreen(),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Cédula no encontrada.')),
