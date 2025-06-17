@@ -220,8 +220,7 @@ class RestaurantScreen extends StatelessWidget {
               FirebaseFirestore.instance
                   .collection('Restaurante')
                   .doc(restaurantId)
-                  .collection('Mesas')
-                  .where('Estado', isEqualTo: true)
+                  .collection('Reservas')
                   .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -242,17 +241,13 @@ class RestaurantScreen extends StatelessWidget {
                 final tableDoc = reservedTables[index];
                 final tableData = tableDoc.data() as Map<String, dynamic>;
                 final numero = tableData['numero'] ?? '';
-                final datosCliente =
-                    tableData['datosCliente'] as Map<String, dynamic>?;
-
-                if (datosCliente == null) return const SizedBox.shrink();
 
                 final nombreCliente =
-                    datosCliente['nombreCliente'] ?? 'Sin nombre';
+                    tableData['nombreCliente'] ?? 'Sin nombre';
                 final contactoCliente =
-                    datosCliente['contactoCliente']?.toString() ?? '';
+                    tableData['contactoCliente']?.toString() ?? '';
                 final fechaHoraReservacion =
-                    datosCliente['fecha_HoraReservacion'] as Timestamp?;
+                    tableData['fecha_HoraReservacion'] as Timestamp?;
 
                 String fechaHoraTexto = 'Sin fecha';
                 if (fechaHoraReservacion != null) {
@@ -410,9 +405,9 @@ class RestaurantScreen extends StatelessWidget {
       await FirebaseFirestore.instance
           .collection('Restaurante')
           .doc(restaurantId)
-          .collection('Mesas')
+          .collection('Reservas')
           .doc(docId)
-          .update({'Estado': false, 'datosCliente': FieldValue.delete()});
+          .delete();
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

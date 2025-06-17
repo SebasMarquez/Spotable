@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/orders_footer.dart';
+import 'dart:async';
+import 'package:rxdart/rxdart.dart';
 
 final Color primaryColor = const Color(0xFF1E88E5); // Azul principal
 final Color accentColor = const Color(0xFFFFC107); // Amarillo/acento
@@ -40,6 +42,36 @@ class Mesa {
   }
 }
 
+class Reserva {
+  final String id;
+  final String cedulaCliente;
+  final String contactoCliente;
+  final Timestamp fechaHoraReservacion;
+  final String idMesa;
+  final String nombreCliente;
+
+  const Reserva({
+    required this.id,
+    required this.cedulaCliente,
+    required this.contactoCliente,
+    required this.fechaHoraReservacion,
+    required this.idMesa,
+    required this.nombreCliente,
+  });
+
+  factory Reserva.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Reserva(
+      id: doc.id,
+      cedulaCliente: data['cedulaCliente'] ?? '',
+      contactoCliente: data['contactoCliente'] ?? '',
+      fechaHoraReservacion: data['fecha_HoraReservacion'] ?? Timestamp.now(),
+      idMesa: data['id_mesa'] ?? '',
+      nombreCliente: data['nombreCliente'] ?? '',
+    );
+  }
+}
+
 // Pantalla principal de reservaciones con selección de fecha y hora
 class ReservationScreen extends StatefulWidget {
   final String restauranteId;
@@ -54,19 +86,29 @@ class _ReservationScreenState extends State<ReservationScreen> {
   bool _fechaSeleccionada = false;
 
   // Función para verificar si una mesa está ocupada en el horario seleccionado
-  bool _mesaEstaOcupada(Mesa mesa, DateTime fechaHoraDeseada) {
-    if (!mesa.Estado || mesa.fecha_HoraReservacion == null) {
-      return false;
+  bool _mesaEstaOcupada(
+    String mesaId,
+    DateTime fechaHoraDeseada,
+    List<Reserva> reservas,
+  ) {
+    // Buscar reservas para esta mesa específica
+    final reservasMesa = reservas.where((reserva) => reserva.idMesa == mesaId);
+
+    for (final reserva in reservasMesa) {
+      final fechaReserva = reserva.fechaHoraReservacion.toDate();
+      final finReserva = fechaReserva.add(const Duration(hours: 2));
+
+      // Verificar si la fecha deseada está dentro del período de reserva (2 horas)
+      if (fechaHoraDeseada.isAfter(
+            fechaReserva.subtract(const Duration(minutes: 1)),
+          ) &&
+          fechaHoraDeseada.isBefore(
+            finReserva.add(const Duration(minutes: 1)),
+          )) {
+        return true;
+      }
     }
-
-    final fechaReserva = mesa.fecha_HoraReservacion!.toDate();
-    final finReserva = fechaReserva.add(const Duration(hours: 2));
-
-    // Verificar si la fecha deseada está dentro del período de reserva (2 horas)
-    return fechaHoraDeseada.isAfter(
-          fechaReserva.subtract(const Duration(minutes: 1)),
-        ) &&
-        fechaHoraDeseada.isBefore(finReserva.add(const Duration(minutes: 1)));
+    return false;
   }
 
   Future<void> _seleccionarFechaHora() async {
@@ -238,31 +280,43 @@ class _ReservationScreenState extends State<ReservationScreen> {
           ),
         ),
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('Restaurante')
-                    .doc(widget.restauranteId)
-                    .collection('Mesas')
-                    .snapshots(),
+          child: StreamBuilder<List<QuerySnapshot>>(
+            stream: _getCombinedStream(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              if (!snapshot.hasData || snapshot.data!.length < 2) {
+                return const Center(child: Text('Error al cargar datos.'));
+              }
+
+              final mesasSnapshot = snapshot.data![0];
+              final reservasSnapshot = snapshot.data![1];
+
+              if (mesasSnapshot.docs.isEmpty) {
                 return const Center(child: Text('No hay mesas disponibles.'));
               }
 
               final mesas =
-                  snapshot.data!.docs
+                  mesasSnapshot.docs
                       .map((doc) => Mesa.fromFirestore(doc))
                       .toList();
 
-              // Calcular disponibilidad basada en la fecha/hora seleccionada
+              final reservas =
+                  reservasSnapshot.docs
+                      .map((doc) => Reserva.fromFirestore(doc))
+                      .toList();
+
+              // Calcular disponibilidad basada en las reservas
               final mesasDisponibles =
                   mesas
                       .where(
-                        (mesa) => !_mesaEstaOcupada(mesa, _fechaHoraDeseada!),
+                        (mesa) =>
+                            !_mesaEstaOcupada(
+                              mesa.id,
+                              _fechaHoraDeseada!,
+                              reservas,
+                            ),
                       )
                       .length;
 
@@ -295,9 +349,26 @@ class _ReservationScreenState extends State<ReservationScreen> {
                       itemBuilder: (context, index) {
                         final mesa = mesas[index];
                         final estaOcupada = _mesaEstaOcupada(
-                          mesa,
+                          mesa.id,
                           _fechaHoraDeseada!,
+                          reservas,
                         );
+
+                        // Encontrar la reserva específica para mostrar información adicional
+                        Reserva? reservaActual;
+                        if (estaOcupada) {
+                          reservaActual = reservas.firstWhere(
+                            (reserva) =>
+                                reserva.idMesa == mesa.id &&
+                                _mesaEstaOcupada(mesa.id, _fechaHoraDeseada!, [
+                                  reserva,
+                                ]),
+                            orElse:
+                                () => reservas.firstWhere(
+                                  (reserva) => reserva.idMesa == mesa.id,
+                                ),
+                          );
+                        }
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -325,11 +396,17 @@ class _ReservationScreenState extends State<ReservationScreen> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                if (estaOcupada &&
-                                    mesa.fecha_HoraReservacion != null) ...[
+                                if (estaOcupada && reservaActual != null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Reservada hasta: ${_formatearFechaHora(mesa.fecha_HoraReservacion!.toDate().add(const Duration(hours: 2)))}',
+                                    'Reservada por: ${reservaActual.nombreCliente}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Hasta: ${_formatearFechaHora(reservaActual.fechaHoraReservacion.toDate().add(const Duration(hours: 2)))}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
@@ -417,6 +494,28 @@ class _ReservationScreenState extends State<ReservationScreen> {
 
   String _formatearFechaHora(DateTime fechaHora) {
     return '${fechaHora.day}/${fechaHora.month}/${fechaHora.year} ${fechaHora.hour.toString().padLeft(2, '0')}:${fechaHora.minute.toString().padLeft(2, '0')}';
+  }
+
+  Stream<List<QuerySnapshot>> _getCombinedStream() {
+    final mesasStream =
+        FirebaseFirestore.instance
+            .collection('Restaurante')
+            .doc(widget.restauranteId)
+            .collection('Mesas')
+            .snapshots();
+
+    final reservasStream =
+        FirebaseFirestore.instance
+            .collection('Restaurante')
+            .doc(widget.restauranteId)
+            .collection('Reservas')
+            .snapshots();
+
+    return Rx.combineLatest2<QuerySnapshot, QuerySnapshot, List<QuerySnapshot>>(
+      mesasStream,
+      reservasStream,
+      (mesas, reservas) => [mesas, reservas],
+    );
   }
 }
 
