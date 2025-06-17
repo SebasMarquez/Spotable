@@ -1,13 +1,59 @@
 // lib/widgets/orders_footer.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/order.dart' as orderModel;
 import '../providers/user_provider.dart';
-import '../widgets/orders_dialog.dart';
+import './orders_dialog.dart'; // Asegúrate que la importación es correcta
 
 class OrdersFooter extends StatelessWidget {
-  const OrdersFooter({Key? key}) : super(key: key);
+  const OrdersFooter({super.key});
+
+  Stream<List<orderModel.Order>> _getUserOrders(String cedula) {
+    print('OrdersFooter _getUserOrders: Called for cedula: $cedula');
+    return FirebaseFirestore.instance
+        .collectionGroup('Order')
+        .where('cedulaCliente', isEqualTo: cedula) // Cambiado a cedulaCliente
+        .orderBy('createdAt', descending: true) // Reinstated
+        .snapshots()
+        .asyncMap((querySnapshot) async {
+          print(
+            'OrdersFooter _getUserOrders: Firestore query returned ${querySnapshot.docs.length} documents for cedula $cedula.',
+          );
+          List<orderModel.Order> orders = [];
+          for (var doc in querySnapshot.docs) {
+            final data = doc.data();
+            print(
+              'OrdersFooter _getUserOrders: Processing order doc ID: ${doc.id}, Cedula (from doc field cedulaCliente): ${data['cedulaCliente']}, Estado: ${data['estado']}',
+            );
+
+            // restauranteName and restauranteId are now directly part of the Order object via fromFirestore
+            // No need to manually extract them here if Order.fromFirestore handles it.
+
+            try {
+              orders.add(orderModel.Order.fromFirestore(doc));
+            } catch (e) {
+              print(
+                "OrdersFooter _getUserOrders: Error converting Firestore doc to Order object for doc ${doc.id}: $e. Data: $data",
+              );
+            }
+          }
+          print(
+            'OrdersFooter _getUserOrders: Processed ${orders.length} orders for cedula $cedula.',
+          );
+          // Filter for active states after processing all orders from the snapshot
+          return orders
+              .where(
+                (order) =>
+                    ['Generado', 'En cocina', 'Listo'].contains(order.estado),
+              )
+              .toList();
+        })
+        .handleError((error) {
+          print('OrdersFooter _getUserOrders: Error in stream: $error');
+          return <orderModel.Order>[];
+        });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +77,12 @@ class OrdersFooter extends StatelessWidget {
             if (snapshot.hasError) {
               // print('OrdersFooter StreamBuilder: ERROR: ${snapshot.error}');
               // print('OrdersFooter StreamBuilder: StackTrace: ${snapshot.stackTrace}');
+              print(
+                'OrdersFooter StreamBuilder: DETAILED ERROR: ${snapshot.error}',
+              );
+              print(
+                'OrdersFooter StreamBuilder: DETAILED STACKTRACE: ${snapshot.stackTrace}',
+              );
               // Return a visible error message instead of SizedBox.shrink()
               return Container(
                 height: 50,
@@ -74,17 +126,15 @@ class OrdersFooter extends StatelessWidget {
             }
 
             // print('OrdersFooter StreamBuilder: Data received. Orders count: ${snapshot.data!.length}. Proceeding to build footer UI.');
-            final orders = snapshot.data!;
-            final activeOrders =
-                orders
-                    .where(
-                      (order) =>
-                          order.estado.toLowerCase() == 'generada' ||
-                          order.estado.toLowerCase() == 'en cocina' ||
-                          order.estado.toLowerCase() == 'lista',
-                    )
-                    .toList();
-            // print('OrdersFooter StreamBuilder: Total orders: ${orders.length}, Active orders: ${activeOrders.length}');
+            final orders =
+                snapshot
+                    .data!; // These are already the active orders filtered by the stream
+
+            // The 'activeOrders' filtering here was redundant and potentially incorrect
+            // as 'orders' from snapshot.data! is already filtered by _getUserOrders
+            // to include only states: ['Generado', 'En cocina', 'Listo'].
+            // We will use 'orders' directly for active order logic.
+            // print('OrdersFooter StreamBuilder: Total orders from stream (should be active): ${orders.length}');
 
             return Container(
               margin: const EdgeInsets.all(16),
@@ -115,17 +165,20 @@ class OrdersFooter extends StatelessWidget {
                             height: 32,
                             decoration: BoxDecoration(
                               color:
-                                  activeOrders.isNotEmpty
+                                  orders
+                                          .isNotEmpty // Use orders directly
                                       ? const Color(0xFFB71C1C).withOpacity(0.1)
                                       : Colors.green.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Icon(
-                              activeOrders.isNotEmpty
+                              orders
+                                      .isNotEmpty // Use orders directly
                                   ? Icons.restaurant
                                   : Icons.check_circle,
                               color:
-                                  activeOrders.isNotEmpty
+                                  orders
+                                          .isNotEmpty // Use orders directly
                                       ? const Color(0xFFB71C1C)
                                       : Colors.green,
                               size: 18,
@@ -144,9 +197,9 @@ class OrdersFooter extends StatelessWidget {
                                   color: Color(0xFF1A1A1A),
                                 ),
                               ),
-                              if (activeOrders.isNotEmpty)
+                              if (orders.isNotEmpty) // Use orders directly
                                 Text(
-                                  '${activeOrders.length} en preparación',
+                                  '${orders.length} en preparación', // Use orders.length
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.grey[600],
@@ -156,7 +209,8 @@ class OrdersFooter extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(width: 16),
-                          if (orders.isNotEmpty)
+                          if (orders
+                              .isNotEmpty) // This badge shows the count of active orders
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -192,106 +246,6 @@ class OrdersFooter extends StatelessWidget {
         );
       },
     );
-  }
-
-  Stream<List<orderModel.Order>> _getUserOrders(String cedula) {
-    // print('OrdersFooter _getUserOrders: Called for cedula: $cedula');
-    return FirebaseFirestore.instance
-        .collectionGroup('Order')
-        .where('cedula', isEqualTo: cedula)
-        // .orderBy('createdAt', descending: true)
-        .snapshots()
-        .asyncMap((querySnapshot) async {
-          // print('OrdersFooter _getUserOrders: Firestore query returned ${querySnapshot.docs.length} documents for cedula $cedula.');
-          List<orderModel.Order> orders = [];
-          for (var doc in querySnapshot.docs) {
-            final data = doc.data();
-            // print('OrdersFooter _getUserOrders: Processing order doc ID: ${doc.id}, Data (first 100 chars): ${data.toString().substring(0, data.toString().length > 100 ? 100 : data.toString().length)}');
-
-            String restauranteName = "Nombre no encontrado";
-            String restauranteId = "ID no encontrado";
-
-            final restauranteRef = doc.reference.parent.parent;
-
-            if (restauranteRef == null) {
-              // print('OrdersFooter _getUserOrders: Error - Restaurante reference (parent.parent) is null for order ${doc.id}');
-            } else {
-              restauranteId = restauranteRef.id;
-              // print('OrdersFooter _getUserOrders: Restaurante ID for order ${doc.id} is $restauranteId');
-              try {
-                final restSnap =
-                    await FirebaseFirestore.instance
-                        .collection('Restaurante')
-                        .doc(restauranteId)
-                        .get();
-                if (restSnap.exists) {
-                  restauranteName =
-                      restSnap.data()?['Nombre'] as String? ??
-                      "Nombre no disponible en doc";
-                  // print('OrdersFooter _getUserOrders: Restaurante name for ${doc.id} is $restauranteName');
-                } else {
-                  // print('OrdersFooter _getUserOrders: Restaurante document $restauranteId does not exist for order ${doc.id}.');
-                  restauranteName = "Restaurante no existe en DB";
-                }
-              } catch (e) {
-                // print('OrdersFooter _getUserOrders: EXCEPTION fetching restaurant name for ID $restauranteId (Order ID: ${doc.id}): $e');
-              }
-            }
-
-            try {
-              final itemsMap = data['Items'] as Map<dynamic, dynamic>?;
-              final itemsList =
-                  itemsMap?.entries.map((entry) {
-                    dynamic rawQuantity = entry.value;
-                    int quantity = 0;
-                    if (rawQuantity is int) {
-                      quantity = rawQuantity;
-                    } else if (rawQuantity is String) {
-                      quantity = int.tryParse(rawQuantity) ?? 0;
-                    } else if (rawQuantity is double) {
-                      quantity = rawQuantity.toInt();
-                    } else {
-                      // print('OrdersFooter _getUserOrders: Order ${doc.id}, Item: ${entry.key}, Unknown quantity type: $rawQuantity');
-                    }
-                    // print('OrdersFooter _getUserOrders: Order ${doc.id}, Item: ${entry.key}, RawQty: $rawQuantity, ParsedQty: $quantity');
-
-                    return orderModel.OrderItem(
-                      menuItemId: '',
-                      name: entry.key.toString(),
-                      price: 0,
-                      quantity: quantity,
-                    );
-                  }).toList() ??
-                  [];
-
-              Timestamp? createdAtTimestamp = data['createdAt'] as Timestamp?;
-
-              orders.add(
-                orderModel.Order(
-                  id: doc.id,
-                  restauranteId: restauranteId,
-                  restauranteName: restauranteName,
-                  items: itemsList,
-                  total: (data['total'] as num?)?.toDouble() ?? 0.0,
-                  estado: data['estado'] as String? ?? 'Generado',
-                  createdAt:
-                      createdAtTimestamp != null
-                          ? createdAtTimestamp.toDate()
-                          : DateTime.now(),
-                ),
-              );
-            } catch (e) {
-              // print('OrdersFooter _getUserOrders: EXCEPTION mapping order document ${doc.id} to Order object: $e');
-            }
-          }
-          // print('OrdersFooter _getUserOrders: Finished processing for cedula $cedula. Total orders mapped: ${orders.length}');
-          return orders;
-        })
-        .handleError((error, stackTrace) {
-          // print('OrdersFooter _getUserOrders: ERROR in stream for cedula $cedula: $error');
-          // print('OrdersFooter _getUserOrders: StackTrace for stream error: $stackTrace');
-          throw error;
-        });
   }
 
   void _showOrdersDialog(BuildContext context, List<orderModel.Order> orders) {

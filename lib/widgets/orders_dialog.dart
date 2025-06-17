@@ -126,23 +126,32 @@ class OrdersDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.receipt,
-                      color: _getStatusColor(order.estado),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Pedido #${order.id.substring(0, 8)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
+                Expanded(
+                  // Envuelve el Row interno con Expanded
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.receipt,
+                        color: _getStatusColor(order.estado),
+                        size: 20,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        // Envuelve el Text con Expanded
+                        child: Text(
+                          'Pedido ${order.idMesa ?? 'No asignada'}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A1A1A),
+                          ),
+                          overflow:
+                              TextOverflow
+                                  .ellipsis, // Añade overflow para el texto
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 _buildStatusChip(order.estado),
               ],
@@ -264,14 +273,14 @@ class OrdersDialog extends StatelessWidget {
 
   Color _getStatusColor(String estado) {
     switch (estado.toLowerCase()) {
-      case 'pendiente':
-        return Colors.orange;
-      case 'preparando':
-      case 'en preparación':
+      case 'generado': // Matched with restaurant_screen.dart
         return Colors.blue;
-      case 'listo':
+      case 'en cocina': // Matched with restaurant_screen.dart
+        return Colors.orange;
+      case 'listo': // Matched with restaurant_screen.dart
         return Colors.green;
       case 'entregado':
+        // Consider using Colors.purple if you want to match the other screen, otherwise grey is fine.
         return Colors.grey;
       case 'cancelado':
         return Colors.red;
@@ -282,10 +291,9 @@ class OrdersDialog extends StatelessWidget {
 
   IconData _getStatusIcon(String estado) {
     switch (estado.toLowerCase()) {
-      case 'pendiente':
+      case 'generado': // Changed from 'pendiente' to match 'Generado'
         return Icons.schedule;
-      case 'preparando':
-      case 'en preparación':
+      case 'en cocina': // Changed from 'preparando'/'en preparación' to match 'En cocina'
         return Icons.restaurant;
       case 'listo':
         return Icons.check_circle;

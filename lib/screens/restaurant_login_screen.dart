@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 
 class RestaurantLoginScreen extends StatefulWidget {
   final Function(String) onLogin;
@@ -13,14 +14,46 @@ class RestaurantLoginScreen extends StatefulWidget {
 class _RestaurantLoginScreenState extends State<RestaurantLoginScreen> {
   final TextEditingController _controller = TextEditingController();
   String? _error;
+  bool _isLoading = false; // To show a loading indicator
 
-  void _submit() {
+  Future<void> _submit() async {
     final id = _controller.text.trim();
     if (id.isEmpty) {
       setState(() => _error = 'Por favor, ingresa un ID.');
       return;
     }
-    widget.onLogin(id);
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Check if restaurant ID exists in Firestore
+      final docSnapshot =
+          await FirebaseFirestore.instance
+              .collection(
+                'Restaurante',
+              ) // Assuming your collection is named 'Restaurante'
+              .doc(id)
+              .get();
+
+      if (docSnapshot.exists) {
+        widget.onLogin(id);
+      } else {
+        setState(() {
+          _error = 'ID de restaurante no encontrado.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error al verificar el ID: ${e.toString()}';
+      });
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
@@ -65,11 +98,17 @@ class _RestaurantLoginScreenState extends State<RestaurantLoginScreen> {
                   errorText: _error,
                   border: const OutlineInputBorder(),
                 ),
-                onSubmitted: (_) => _submit(),
+                onSubmitted:
+                    (_) =>
+                        _isLoading
+                            ? null
+                            : _submit(), // Disable on submit while loading
+                enabled: !_isLoading, // Disable text field while loading
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _submit,
+                onPressed:
+                    _isLoading ? null : _submit, // Disable button while loading
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[600],
                   padding: const EdgeInsets.symmetric(
@@ -80,10 +119,20 @@ class _RestaurantLoginScreenState extends State<RestaurantLoginScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Ingresar',
-                  style: TextStyle(color: Colors.white),
-                ),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.0,
+                          ),
+                        )
+                        : const Text(
+                          'Ingresar',
+                          style: TextStyle(color: Colors.white),
+                        ),
               ),
             ],
           ),

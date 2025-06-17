@@ -441,7 +441,7 @@ class RestaurantScreen extends StatelessWidget {
       title: 'Pedidos Recientes',
       icon: Icons.receipt_long,
       child: SizedBox(
-        height: 320,
+        height: 320, // Adjusted height if necessary
         child: StreamBuilder<QuerySnapshot>(
           stream: firebaseService.ordersStream(restaurantId),
           builder: (context, orderSnapshot) {
@@ -463,10 +463,15 @@ class RestaurantScreen extends StatelessWidget {
                 final order = orders[index];
                 final orderData = order.data() as Map<String, dynamic>;
                 final total = orderData['total'] ?? 0;
-                final itemsRaw = orderData['Items'];
-                final items = itemsRaw is Map ? itemsRaw : <String, dynamic>{};
+
+                // Correctly parse 'items' (lowercase) as a List<Map<String, dynamic>>
+                final List<dynamic> itemsRawList =
+                    (orderData['items'] as List<dynamic>?) ?? [];
+                final List<Map<String, dynamic>> itemsList =
+                    itemsRawList.whereType<Map<String, dynamic>>().toList();
+
                 final estado = orderData['estado'] ?? 'Generado';
-                final cedula = orderData['cedula'] ?? '';
+                final cedulaCliente = orderData['cedulaCliente'] ?? '';
                 final createdAt = orderData['createdAt'];
                 String hora = '';
                 if (createdAt is Timestamp) {
@@ -480,47 +485,65 @@ class RestaurantScreen extends StatelessWidget {
 
                 return Card(
                   elevation: 2,
-                  color: Colors.white, // Fondo blanco para todas las cartas
+                  color: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () async {
-                      final nombre = await _getNombreCliente(cedula);
+                      final nombre = await _getNombreCliente(cedulaCliente);
                       showDialog(
                         context: context,
                         builder: (context) {
                           return AlertDialog(
-                            backgroundColor: Colors.white, // Fondo blanco
+                            backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                             title: const Text(
                               'Detalle del Pedido',
-                              style: TextStyle(
-                                color: Colors.black,
-                              ), // Título negro
+                              style: TextStyle(color: Colors.black),
                             ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Cliente: ${nombre ?? 'Desconocido'}'),
-                                Text('Cédula: $cedula'),
-                                Text('Total: \$${total.toStringAsFixed(2)}'),
-                                Text('Estado: $estado'),
-                                Text('Hora: $hora'),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Items:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                ...items.entries.map(
-                                  (entry) =>
-                                      Text('• ${entry.key} x${entry.value}'),
-                                ),
-                              ],
+                            content: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Cliente: ${nombre ?? 'Desconocido'} ($cedulaCliente)',
+                                  ),
+                                  Text('Total: \$${total.toStringAsFixed(2)}'),
+                                  Text('Estado: $estado'),
+                                  Text('Hora: $hora'),
+                                  Text('ID Pedido: ${order.id}'),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Items:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (itemsList.isNotEmpty)
+                                    ...itemsList.map((itemMap) {
+                                      final nombreItem =
+                                          itemMap['name']?.toString() ?? 'Item';
+                                      final cantidad = itemMap['quantity'] ?? 0;
+                                      // Assuming 'price' might also be in itemMap
+                                      final price = itemMap['price'] ?? 0.0;
+                                      return Text(
+                                        '• $nombreItem x$cantidad (\$${price.toStringAsFixed(2)})',
+                                      );
+                                    }).toList()
+                                  else
+                                    const Text(
+                                      'No hay items en este pedido.',
+                                      style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                             actions: [
                               TextButton(
@@ -571,11 +594,32 @@ class RestaurantScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Pedido',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              Expanded(
+                                child: FutureBuilder<String?>(
+                                  future: _getNombreCliente(cedulaCliente),
+                                  builder: (context, nombreSnapshot) {
+                                    if (nombreSnapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return Text(
+                                        'Cliente: Cargando...',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      );
+                                    }
+                                    final nombre =
+                                        nombreSnapshot.data ?? 'Desconocido';
+                                    return Text(
+                                      'Cliente: $nombre ($cedulaCliente)',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    );
+                                  },
                                 ),
                               ),
                               Container(
@@ -584,86 +628,91 @@ class RestaurantScreen extends StatelessWidget {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color: _getEstadoColor(
+                                    estado,
+                                  ).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   estado,
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryDark,
+                                    color: _getEstadoColor(estado),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.red,
-                                ),
-                                tooltip: 'Eliminar pedido',
-                                onPressed: () async {
-                                  await FirebaseFirestore.instance
-                                      .collection('Restaurante')
-                                      .doc(restaurantId)
-                                      .collection('Order')
-                                      .doc(order.id)
-                                      .delete();
-                                },
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...items.entries.map((entry) {
-                            final nombre = entry.key;
-                            final cantidad = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'x$cantidad',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 12,
+                          Text(
+                            'ID Pedido: ${order.id}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Hora: $hora',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Items:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          if (itemsList.isNotEmpty)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children:
+                                  itemsList.map((itemMap) {
+                                    final nombreItem =
+                                        itemMap['name']?.toString() ?? 'Item';
+                                    final cantidad = itemMap['quantity'] ?? 0;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 8.0,
+                                        top: 2.0,
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      nombre.toString(),
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  ),
-                                ],
+                                      child: Text(
+                                        '• $nombreItem x$cantidad',
+                                        style: TextStyle(
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 8.0,
+                                top: 2.0,
                               ),
-                            );
-                          }),
+                              child: Text(
+                                'No hay items en este pedido.',
+                                style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Text(
-                                'Total: ',
-                                style: TextStyle(
+                                'Total: \$${total.toStringAsFixed(2)}',
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                '\$${total.toStringAsFixed(2)}', // Muestra el total guardado en firebase con el símbolo $
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.secondary,
+                                  fontSize: 16,
                                 ),
                               ),
                             ],
@@ -830,5 +879,23 @@ class RestaurantScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Helper function to get color based on order state (ensure this exists)
+  Color _getEstadoColor(String estado) {
+    switch (estado.toLowerCase()) {
+      case 'generado':
+        return Colors.blue;
+      case 'en cocina':
+        return Colors.orange;
+      case 'listo':
+        return Colors.green;
+      case 'entregado':
+        return Colors.purple;
+      case 'cancelado':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

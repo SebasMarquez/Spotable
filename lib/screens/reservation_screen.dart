@@ -12,11 +12,17 @@ final Color reservedColor = const Color(0xFFE53935); // Rojo para reservada
 
 // Modelo de Mesa
 class Mesa {
+  final String id; // Added field to store the document ID
   final int numero;
   final bool Estado;
   final Map<String, dynamic>? datosCliente;
 
-  const Mesa({required this.numero, required this.Estado, this.datosCliente});
+  const Mesa({
+    required this.id, // Added id to constructor
+    required this.numero,
+    required this.Estado,
+    this.datosCliente,
+  });
 
   String? get nombreCliente => datosCliente?['nombreCliente'];
   int? get contactoCliente => datosCliente?['contactoCliente'];
@@ -26,6 +32,7 @@ class Mesa {
   factory Mesa.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Mesa(
+      id: doc.id, // Store the actual document ID from Firestore
       numero: data['numero'] ?? 0,
       Estado: data['Estado'] ?? false,
       datosCliente: data['datosCliente'] as Map<String, dynamic>?,
@@ -106,6 +113,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 : null,
       ),
       body: !_fechaSeleccionada ? _buildSeleccionFecha() : _buildListaMesas(),
+      bottomNavigationBar: const OrdersFooter(), // Added OrdersFooter here
     );
   }
 
@@ -403,7 +411,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const OrdersFooter(),
+      // bottomNavigationBar: const OrdersFooter(), // Removed from here
     );
   }
 
@@ -438,7 +446,7 @@ ThemeData buildReservationTheme() {
       tileColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
-  );
+  ); // Changed from }; to );
 }
 
 // Formulario de reserva
@@ -482,38 +490,91 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final restauranteId =
+      final restauranteIdArgs =
           ModalRoute.of(context)?.settings.arguments as String?;
-      if (restauranteId == null || restauranteId.isEmpty) {
-        throw Exception('restauranteId no proporcionado');
+      if (restauranteIdArgs == null || restauranteIdArgs.isEmpty) {
+        throw Exception('restauranteId no proporcionado en argumentos de ruta');
       }
-      final mesaDoc = FirebaseFirestore.instance
-          .collection('Restaurante')
-          .doc(restauranteId)
-          .collection('Mesas')
-          .doc('Mesa_${widget.mesa.numero.toString()}');
 
       // Obtener nombre y cedula del provider
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final nombreCliente = userProvider.user?.nombre ?? '';
       final cedulaCliente = userProvider.user?.cedula ?? '';
 
+      // 1. Crear el nuevo documento de reserva
+      final reservasCollection = FirebaseFirestore.instance
+          .collection('Restaurante')
+          .doc(restauranteIdArgs)
+          .collection('Reservas');
+
+      final newReservationData = {
+        'contactoCliente': _contactoController.text,
+        'fecha_HoraReservacion': Timestamp.fromDate(_fechaHoraSeleccionada!),
+        'id_mesa': widget.mesa.id, // ID of the Mesa document
+        'nombreCliente': nombreCliente,
+        'cedulaCliente': cedulaCliente,
+      };
+      // Firestore will auto-generate an ID for the new reservation document
+      DocumentReference reservationDocRef = await reservasCollection.add(
+        newReservationData,
+      ); // Store the reference
+
+      // 2. Actualizar el documento de la Mesa
+      final mesaDoc = FirebaseFirestore.instance
+          .collection('Restaurante')
+          .doc(restauranteIdArgs)
+          .collection('Mesas')
+          .doc(widget.mesa.id);
+
       await mesaDoc.update({
         'Estado': true,
         'datosCliente': {
-          'nombreCliente': nombreCliente,
-          'cedulaCliente': cedulaCliente,
-          'contactoCliente': int.tryParse(_contactoController.text),
           'fecha_HoraReservacion': Timestamp.fromDate(_fechaHoraSeleccionada!),
+          'reservationId':
+              reservationDocRef
+                  .id, // Optionally store reservation ID for linking
         },
       });
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mesa reservada exitosamente')),
-        );
+      // 3. Guardar la información de la reserva en la subcolección del usuario
+      if (userProvider.user != null && userProvider.user!.cedula.isNotEmpty) {
+        final restauranteDocSnapshot =
+            await FirebaseFirestore.instance
+                .collection('Restaurante')
+                .doc(restauranteIdArgs)
+                .get();
+        final nombreRestaurante =
+            restauranteDocSnapshot.data()?['nombre'] ?? 'Nombre no encontrado';
+
+        final userReservationData = {
+          'id_mesa': widget.mesa.id,
+          'nombre_restaurante': nombreRestaurante,
+          'hora_reservacion': Timestamp.fromDate(
+            _fechaHoraSeleccionada!,
+          ), // Store as Timestamp
+          'id_restaurante': restauranteIdArgs,
+          'id_reserva_restaurante':
+              reservationDocRef
+                  .id, // Link to the reservation in Restaurante/Reservas
+          'estado': 'activa', // Estado de la reserva
+          'createdAt':
+              FieldValue.serverTimestamp(), // Para ordenar o identificar la más reciente
+        };
+
+        await FirebaseFirestore.instance
+            .collection('Usuario')
+            .doc(cedulaCliente)
+            .collection('ReservasActivas')
+            .add(userReservationData);
+
+        // Ya no se actualiza el campo 'mesa' en el documento 'Usuario' ni en UserProvider directamente.
+        // El modelo UserData se modificará para eliminar el campo 'mesa'.
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mesa reservada exitosamente')),
+      );
+      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -554,7 +615,6 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restauranteId = ModalRoute.of(context)?.settings.arguments as String?;
     final userProvider = Provider.of<UserProvider>(context);
     final nombreCliente = userProvider.user?.nombre ?? '';
     final cedulaCliente = userProvider.user?.cedula ?? '';
@@ -588,9 +648,9 @@ class _FormularioReservaScreenState extends State<FormularioReservaScreen> {
                             subtitle: Text('Cédula: $cedulaCliente'),
                           ),
                         ),
-                         
+
                         const SizedBox(height: 16),
-                            
+
                         TextFormField(
                           controller: _contactoController,
                           decoration: const InputDecoration(
