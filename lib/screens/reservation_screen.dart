@@ -437,7 +437,7 @@ ThemeData buildReservationTheme() {
   );
 }
 
-// Formulario de reserva actualizado
+// Formulario de reserva
 class FormularioReservaScreen extends StatefulWidget {
   final Mesa mesa;
   final DateTime? fechaHoraPreseleccionada;
