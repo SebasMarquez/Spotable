@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../widgets/orders_footer.dart';
 
 final Color primaryColor = const Color(0xFF1E88E5); // Azul principal
 final Color accentColor = const Color(0xFFFFC107); // Amarillo/acento
@@ -119,6 +120,7 @@ class ReservationScreen extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const OrdersFooter(),
     );
   }
 }

@@ -357,16 +357,16 @@ class FirebaseService {
     required String nombre,
     required String cedula,
   }) async {
-    try {
-      await _firestore.collection('Usuario').doc(idUsuario).set({
-        'nombre': nombre,
-        'cedula': cedula,
-      });
-      print('✅ Usuario guardado en Firebase: $idUsuario');
-    } catch (e) {
-      print('❌ Error guardando usuario: $e');
-      rethrow;
-    }
+    await _firestore.collection('Usuario').doc(idUsuario).set({
+      'nombre': nombre,
+      'cedula': cedula,
+      'mesa': {
+        // Nuevo mapa 'mesa'
+        'id_mesa': '',
+        'nombre_restaurante': '',
+        'hora_reservacion': '', // O podrías usar null si prefieres
+      },
+    });
   }
 
   /// Obtener usuario por cédula
