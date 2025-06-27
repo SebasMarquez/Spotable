@@ -44,6 +44,8 @@ class Order {
   final String estado;
   final DateTime createdAt;
   final String cedulaCliente;
+  final String deliveryType; // Nuevo campo
+  final String? deliveryAddress; // Nuevo campo
 
   Order({
     required this.id,
@@ -55,6 +57,8 @@ class Order {
     required this.estado,
     required this.createdAt,
     required this.cedulaCliente,
+    required this.deliveryType,
+    this.deliveryAddress,
   });
 
   // Crear Order desde Firestore
@@ -78,6 +82,8 @@ class Order {
               ? (data['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
       cedulaCliente: data['cedulaCliente'] ?? '', // Read cedulaCliente
+      deliveryType: data['deliveryType'] ?? 'dineIn', // Leer con valor por defecto
+      deliveryAddress: data['deliveryAddress'] as String?, // Leer dirección
     );
   }
 
@@ -92,6 +98,8 @@ class Order {
       'estado': estado,
       'createdAt': Timestamp.fromDate(createdAt),
       'cedulaCliente': cedulaCliente, // Write cedulaCliente
+      'deliveryType': deliveryType,
+      'deliveryAddress': deliveryAddress,
     };
   }
 
@@ -106,6 +114,8 @@ class Order {
     String? estado,
     DateTime? createdAt,
     String? cedulaCliente,
+    String? deliveryType,
+    String? deliveryAddress,
   }) {
     return Order(
       id: id ?? this.id,
@@ -117,6 +127,8 @@ class Order {
       estado: estado ?? this.estado,
       createdAt: createdAt ?? this.createdAt,
       cedulaCliente: cedulaCliente ?? this.cedulaCliente,
+      deliveryType: deliveryType ?? this.deliveryType,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
     );
   }
 

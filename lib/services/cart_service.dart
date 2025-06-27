@@ -6,6 +6,7 @@ import '../models/cart_item.dart';
 import '../models/menu_item.dart';
 import '../models/order.dart' as app_order;
 import '../models/order.dart' show OrderItem; // Import OrderItem directly
+import '../screens/cart_screen.dart'; // Importar para DeliveryType
 import '../providers/user_provider.dart';
 import 'firebase_service.dart';
 
@@ -192,7 +193,11 @@ class CartService extends ChangeNotifier {
   }
 
   /// Crear orden simple (solo items y total)
-  Future<bool> placeOrderSimple(BuildContext context) async {
+  Future<bool> placeOrderSimple(
+    BuildContext context, {
+    required DeliveryType deliveryType,
+    String? deliveryAddress,
+  }) async {
     // Obtener UserProvider para acceder a los datos del usuario
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userData = userProvider.user;
@@ -205,9 +210,6 @@ class CartService extends ChangeNotifier {
     }
 
     if (_cartItems.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('El carrito está vacío.')));
       return false;
     }
 
@@ -267,11 +269,6 @@ class CartService extends ChangeNotifier {
         print(
           '❌ Error: ID del restaurante es desconocido. No se puede crear el pedido.',
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error: Restaurante no especificado para el pedido.'),
-          ),
-        );
         _isPlacingOrder = false;
         notifyListeners();
         return false;
@@ -312,6 +309,8 @@ class CartService extends ChangeNotifier {
         estado: 'Generado', // Initial state set to "Generado"
         createdAt: DateTime.now(),
         cedulaCliente: userData.cedula, // Correctly assigning cedulaCliente
+        deliveryType: deliveryType.name, // Asignar directamente en el modelo
+        deliveryAddress: deliveryAddress, // Asignar directamente en el modelo
       );
 
       final orderData = order.toMap();
@@ -353,19 +352,11 @@ class CartService extends ChangeNotifier {
       _isPlacingOrder = false;
       notifyListeners();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Pedido realizado con éxito (ID: $customOrderId)'),
-        ),
-      );
       return true;
     } catch (e) {
       print('❌ Error al crear la orden simple: $e');
       _isPlacingOrder = false;
       notifyListeners();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al realizar el pedido: $e')),
-      );
       return false;
     }
   }

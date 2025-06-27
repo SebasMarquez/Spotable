@@ -1,30 +1,33 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:provider/provider.dart';
 import 'package:restaurant_app/main.dart';
+import 'package:restaurant_app/providers/user_provider.dart';
+import 'package:restaurant_app/services/cart_service.dart';
+import 'package:restaurant_app/screens/welcome_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  // This is a more meaningful widget test for your application.
+  // It verifies that the initial WelcomeScreen is displayed correctly.
+  testWidgets('WelcomeScreen shows login options', (WidgetTester tester) async {
+    // Build our app with the necessary providers, just like in main.dart.
+    // The test environment needs to know about the providers your widgets depend on.
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CartService()),
+          ChangeNotifierProvider(create: (_) => UserProvider()),
+        ],
+        child: MyApp(),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Wait for any animations or async operations to complete.
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the WelcomeScreen is being displayed and contains the two main options.
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.text('Soy Usuario'), findsOneWidget);
+    expect(find.text('Soy Restaurante'), findsOneWidget);
   });
 }

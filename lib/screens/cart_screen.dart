@@ -5,11 +5,31 @@ import '../widgets/custom_app_bar.dart';
 import '../widgets/cart_item_widget.dart';
 import '../utils/app_colors.dart';
 
-class CartScreen extends StatelessWidget {
+enum DeliveryType {
+  dineIn,
+  delivery,
+}
+
+class CartScreen extends StatefulWidget {
   final String?
   restaurantId; // Agregar parámetro para recibir el ID del restaurante
 
   const CartScreen({Key? key, this.restaurantId}) : super(key: key);
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  DeliveryType _deliveryType = DeliveryType.dineIn; // Default to dine-in
+  final TextEditingController _addressController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +70,8 @@ class CartScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              // Opciones de tipo de pedido y dirección
+              _buildDeliveryOptions(context),
               // Resumen y botón en la parte inferior
               Container(
                 padding: EdgeInsets.all(16),
@@ -156,54 +178,83 @@ class CartScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildDeliveryOptions(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Card(
+        elevation: 2,
+        color: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tipo de Pedido:',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                RadioListTile<DeliveryType>(
+                  title: const Text('Para comer en el local'),
+                  value: DeliveryType.dineIn,
+                  groupValue: _deliveryType,
+                  onChanged: (DeliveryType? value) {
+                    setState(() {
+                      _deliveryType = value!;
+                    });
+                  },
+                  activeColor: AppColors.primary,
+                ),
+                RadioListTile<DeliveryType>(
+                  title: const Text('A domicilio'),
+                  value: DeliveryType.delivery,
+                  groupValue: _deliveryType,
+                  onChanged: (DeliveryType? value) {
+                    setState(() {
+                      _deliveryType = value!;
+                    });
+                  },
+                  activeColor: AppColors.primary,
+                ),
+                if (_deliveryType == DeliveryType.delivery) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: InputDecoration(
+                      labelText: 'Dirección de entrega',
+                      hintText: 'Ej: Calle Falsa 123, Ciudad',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.location_on),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingresa la dirección de entrega.';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlaceOrderButton(BuildContext context, CartService cartService) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed:
-            cartService.isPlacingOrder
-                ? null
-                : () async {
-                  // Establecer el restaurante si se proporcionó
-                  if (restaurantId != null) {
-                    cartService.setCurrentRestaurant(restaurantId!);
-                  }
-
-                  // Verificar que hay un restaurante establecido
-                  if (!cartService.hasRestaurantSet) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Error: No se ha establecido el restaurante',
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  // Realizar la orden
-                  final success = await cartService.placeOrderSimple(context);
-
-                  if (success) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('¡Orden realizada con éxito!'),
-                        backgroundColor: AppColors.secondary,
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Error al realizar la orden. Intenta de nuevo.',
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
+        onPressed: cartService.isPlacingOrder ? null : () => _placeOrder(context, cartService),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.secondary,
           foregroundColor: Colors.white,
@@ -249,5 +300,58 @@ class CartScreen extends StatelessWidget {
                 ),
       ),
     );
+  }
+
+  void _placeOrder(BuildContext context, CartService cartService) async {
+    // Validar el formulario si se selecciona "A domicilio"
+    if (_deliveryType == DeliveryType.delivery) {
+      if (!_formKey.currentState!.validate()) {
+        return; // Detener si la validación falla
+      }
+    }
+
+    // Establecer el restaurante si se proporcionó
+    if (widget.restaurantId != null) {
+      cartService.setCurrentRestaurant(widget.restaurantId!);
+    }
+
+    // Verificar que hay un restaurante establecido
+    if (!cartService.hasRestaurantSet) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Error: No se ha establecido el restaurante',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Realizar la orden
+    final success = await cartService.placeOrderSimple(
+      context,
+      deliveryType: _deliveryType,
+      deliveryAddress: _deliveryType == DeliveryType.delivery ? _addressController.text : null,
+    );
+
+    // Usar 'context.mounted' para verificar si el widget sigue en el árbol
+    if (!context.mounted) return;
+
+    if (success) {
+      // Pop and return the order details for the confirmation message
+      final confirmationData = {
+        'deliveryType': _deliveryType,
+        'deliveryAddress': _deliveryType == DeliveryType.delivery ? _addressController.text : null,
+      };
+      Navigator.pop(context, confirmationData);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error al realizar la orden. Intenta de nuevo.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

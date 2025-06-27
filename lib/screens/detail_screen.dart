@@ -248,34 +248,7 @@ class _DetailScreenState extends State<DetailScreen> {
     return Container(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          Provider.of<CartService>(
-            context,
-            listen: false,
-          ).addToCart(widget.menuItem, quantity);
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${widget.menuItem.name} agregado al carrito',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: AppColors.secondary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
-        },
+        onPressed: () => _addToCart(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -299,6 +272,43 @@ class _DetailScreenState extends State<DetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _addToCart(BuildContext context) {
+    // Añadir al carrito
+    Provider.of<CartService>(
+      context,
+      listen: false,
+    ).addToCart(widget.menuItem, quantity);
+
+    // Volver a la pantalla anterior
+    Navigator.pop(context);
+
+    // Mostrar confirmación
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${widget.menuItem.name} agregado al carrito',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.secondary,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(
+          bottom: 70.0, // Eleva el SnackBar para no tapar otros botones
+          left: 16.0,
+          right: 16.0,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
