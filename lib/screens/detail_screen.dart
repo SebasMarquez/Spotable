@@ -1,8 +1,9 @@
+// lib/screens/detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/menu_item.dart';
 import '../services/cart_service.dart';
-import '../widgets/custom_app_bar.dart';
+import '../widgets/custom_app_bar.dart'; // Already imported, but good to check usage
 import '../utils/app_colors.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -39,14 +40,15 @@ class _DetailScreenState extends State<DetailScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          clipBehavior: Clip.antiAlias, // Ensure content is clipped
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // IMAGEN CORREGIDA - Ahora con aspecto uniforme
+                // IMAGEN
                 _buildImageWidget(),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
 
                 // NOMBRE
                 Text(
@@ -58,7 +60,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // DESCRIPCIÓN
                 Text(
@@ -70,7 +72,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
 
                 // PRECIO
                 Text(
@@ -81,11 +83,11 @@ class _DetailScreenState extends State<DetailScreen> {
                     color: AppColors.primary,
                   ),
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
 
                 // SELECTOR DE CANTIDAD
                 _buildQuantitySelector(),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
 
                 // BOTÓN AGREGAR AL CARRITO
                 _buildAddToCartButton(context),
@@ -111,7 +113,7 @@ class _DetailScreenState extends State<DetailScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -119,27 +121,27 @@ class _DetailScreenState extends State<DetailScreen> {
         borderRadius: BorderRadius.circular(12),
         child: Image.network(
           widget.menuItem.image,
-          fit:
-              BoxFit
-                  .cover, // CLAVE: Esto hace que la imagen cubra todo el espacio manteniendo proporción
+          fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
               height: 250,
+              color: Colors.grey[200], // Background while loading
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                       value:
                           loadingProgress.expectedTotalBytes != null
                               ? loadingProgress.cumulativeBytesLoaded /
                                   loadingProgress.expectedTotalBytes!
                               : null,
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'Cargando imagen...',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -150,7 +152,7 @@ class _DetailScreenState extends State<DetailScreen> {
             );
           },
           errorBuilder: (context, error, stackTrace) {
-            print('Error cargando imagen: $error');
+            print('Error cargando imagen en DetailScreen: $error'); // Added context for debugging
             return _buildPlaceholder();
           },
         ),
@@ -171,7 +173,7 @@ class _DetailScreenState extends State<DetailScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.restaurant, size: 80, color: Colors.grey[400]),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
             'Sin imagen disponible',
             style: TextStyle(
@@ -187,7 +189,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _buildQuantitySelector() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(25),
@@ -205,20 +207,20 @@ class _DetailScreenState extends State<DetailScreen> {
                       });
                     }
                     : null,
-            icon: Icon(Icons.remove),
+            icon: const Icon(Icons.remove),
             style: IconButton.styleFrom(
               backgroundColor:
                   quantity > 1 ? AppColors.primary : Colors.grey[300],
               foregroundColor: quantity > 1 ? Colors.white : Colors.grey[600],
-              shape: CircleBorder(),
-              padding: EdgeInsets.all(8),
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(8),
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               '$quantity',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -231,12 +233,12 @@ class _DetailScreenState extends State<DetailScreen> {
                 quantity++;
               });
             },
-            icon: Icon(Icons.add),
+            icon: const Icon(Icons.add),
             style: IconButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: CircleBorder(),
-              padding: EdgeInsets.all(8),
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(8),
             ),
           ),
         ],
@@ -245,14 +247,14 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Widget _buildAddToCartButton(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () => _addToCart(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -261,12 +263,12 @@ class _DetailScreenState extends State<DetailScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 20),
-            SizedBox(width: 12),
+            const Icon(Icons.shopping_cart_outlined, size: 20),
+            const SizedBox(width: 12),
             Flexible(
               child: Text(
                 'Agregar al Carrito - \$${(widget.menuItem.price * quantity).toStringAsFixed(2)}',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -304,7 +306,7 @@ class _DetailScreenState extends State<DetailScreen> {
         backgroundColor: AppColors.secondary,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.only(
-          bottom: 70.0, // Eleva el SnackBar para no tapar otros botones
+          bottom: 70.0,
           left: 16.0,
           right: 16.0,
         ),

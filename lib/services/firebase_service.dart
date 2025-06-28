@@ -1,7 +1,7 @@
+// lib/services/firebase_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/menu_item.dart';
 import '../models/order.dart' as OrderModel;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/restaurant.dart';
 
 class FirebaseService {
@@ -396,5 +396,39 @@ class FirebaseService {
         .collection(_ordersSubCollection)
         .doc(orderId)
         .update({'estado': nuevoEstado});
+  }
+
+  // NUEVO: Actualizar el tipo de entrega de una orden
+  static Future<void> updateOrderDeliveryType({
+    required String restaurantId,
+    required String orderId,
+    required String newDeliveryType,
+    String? newDeliveryAddress, // Para 'delivery'
+    String? newTableId, // Para 'dineIn'
+  }) async {
+    final updateData = <String, dynamic>{
+      'deliveryType': newDeliveryType,
+      'deliveryAddress': null, // Clear if changing to dineIn
+      'idMesa': null, // Clear if changing to delivery
+    };
+
+    if (newDeliveryType == 'delivery' && newDeliveryAddress != null) {
+      updateData['deliveryAddress'] = newDeliveryAddress;
+    } else if (newDeliveryType == 'dineIn' && newTableId != null) {
+      updateData['idMesa'] = newTableId;
+    }
+
+    try {
+      await _firestore
+          .collection(_restauranteCollection)
+          .doc(restaurantId)
+          .collection(_ordersSubCollection)
+          .doc(orderId)
+          .update(updateData);
+      print('DEBUG: Tipo de entrega de orden $orderId actualizado a $newDeliveryType');
+    } catch (e) {
+      print('ERROR: Al actualizar tipo de entrega de orden $orderId: $e');
+      rethrow; // Re-lanzar el error para que la UI lo maneje
+    }
   }
 }
