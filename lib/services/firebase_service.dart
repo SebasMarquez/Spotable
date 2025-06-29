@@ -431,4 +431,84 @@ class FirebaseService {
       rethrow; // Re-lanzar el error para que la UI lo maneje
     }
   }
+
+  /// Actualizar el estado de una mesa
+  static Future<void> updateTableStatus({
+    required String restaurantId,
+    required String tableId,
+    required bool isOccupied,
+  }) async {
+    await _firestore
+        .collection(_restauranteCollection)
+        .doc(restaurantId)
+        .collection('Mesas') // El nombre de la subcolección de mesas
+        .doc(tableId)
+        .update({'Estado': isOccupied});
+  }
+
+  /// Pone una mesa como disponible y limpia cualquier reservación asociada.
+  static Future<void> setTableAsAvailableAndClearReservation({
+    required String restaurantId,
+    required String tableId,
+  }) async {
+    final batch = _firestore.batch();
+
+    final tableRef = _firestore
+        .collection(_restauranteCollection)
+        .doc(restaurantId)
+        .collection('Mesas')
+        .doc(tableId);
+
+    final tableSnapshot = await tableRef.get();
+    if (!tableSnapshot.exists) {
+      // La mesa no existe, no se puede continuar.
+      throw Exception('La mesa con ID $tableId no fue encontrada.');
+    }
+
+    final tableData = tableSnapshot.data();
+    final reservationId = tableData?['datosCliente']?['reservationId'];
+
+    // 1. Actualizar la mesa a disponible y eliminar los datos del cliente.
+    batch.update(tableRef, {
+      'Estado': false,
+      'datosCliente': FieldValue.delete(),
+    });
+
+    // Si no hay ID de reservación, solo actualizamos la mesa y terminamos.
+    if (reservationId == null ||
+        reservationId is! String ||
+        reservationId.isEmpty) {
+      await batch.commit();
+      return;
+    }
+
+    // 2. Si hay un ID de reservación, procedemos a eliminarla.
+    final reservationRef = _firestore
+        .collection(_restauranteCollection)
+        .doc(restaurantId)
+        .collection('Reservas')
+        .doc(reservationId);
+
+    final reservationSnapshot = await reservationRef.get();
+
+    if (reservationSnapshot.exists) {
+      final reservationData = reservationSnapshot.data();
+      final cedulaCliente = reservationData?['cedulaCliente'];
+
+      // 3. Eliminar la reservación principal.
+      batch.delete(reservationRef);
+
+      // 4. Si tenemos la cédula, buscar y eliminar la reserva activa del usuario.
+      if (cedulaCliente != null && cedulaCliente is String && cedulaCliente.isNotEmpty) {
+        final userReservationsQuery = _firestore.collection('Usuario').doc(cedulaCliente).collection('ReservasActivas').where('id_reserva_restaurante', isEqualTo: reservationId);
+        final userReservationsSnapshot = await userReservationsQuery.get();
+        for (final doc in userReservationsSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+      }
+    }
+
+    // 5. Ejecutar todas las operaciones en el batch.
+    await batch.commit();
+  }
 }

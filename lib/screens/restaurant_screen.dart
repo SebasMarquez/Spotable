@@ -8,8 +8,10 @@ import '../widgets/order_card.dart'; // Import the new OrderCard widget
 
 class RestaurantScreen extends StatelessWidget {
   final String restaurantId;
+  final VoidCallback onLogout;
 
-  const RestaurantScreen({Key? key, required this.restaurantId})
+  const RestaurantScreen(
+      {Key? key, required this.restaurantId, required this.onLogout})
       : super(key: key);
 
   // Nuevo método para actualizar el estado del pedido
@@ -76,6 +78,86 @@ class RestaurantScreen extends StatelessWidget {
     );
   }
 
+  // NUEVO: Método para mostrar diálogo de confirmación para cambiar estado de mesa
+  void _showToggleTableStatusConfirmation(
+    BuildContext context,
+    String tableId,
+    String tableNumber,
+    bool currentStatus,
+  ) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Cambiar Estado de Mesa'),
+          content: Text(
+            '¿Estás seguro de que deseas cambiar el estado de la Mesa $tableNumber a "${currentStatus ? 'Disponible' : 'Ocupada'}"?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar el diálogo
+              },
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar el diálogo
+                _toggleTableStatus(
+                    context, tableId, currentStatus); // Ejecutar el cambio
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: currentStatus ? Colors.green : Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // NUEVO: Método para cambiar el estado de la mesa
+  Future<void> _toggleTableStatus(
+      BuildContext context, String tableId, bool currentStatus) async {
+    try {
+      // Si el estado actual es 'Ocupada' (true), al cambiarlo a 'Disponible' (false)
+      // debemos limpiar la reservación asociada.
+      if (currentStatus) {
+        await FirebaseService.setTableAsAvailableAndClearReservation(
+          restaurantId: restaurantId,
+          tableId: tableId,
+        );
+      } else {
+        // Si el estado actual es 'Disponible' (false), simplemente lo cambiamos a 'Ocupada' (true).
+        await FirebaseService.updateTableStatus(
+          restaurantId: restaurantId,
+          tableId: tableId,
+          isOccupied: true,
+        );
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Estado de la mesa actualizado.'),
+            backgroundColor: AppColors.secondary,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al actualizar el estado de la mesa: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final firebaseService = FirebaseService();
@@ -119,6 +201,13 @@ class RestaurantScreen extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                   )
                 : null,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout),
+                tooltip: 'Cerrar Sesión',
+                onPressed: onLogout,
+              ),
+            ],
           ),
           body: LayoutBuilder(
             builder: (context, constraints) {
@@ -382,7 +471,7 @@ class RestaurantScreen extends StatelessWidget {
           itemBuilder: (context, index) {
             final tableDoc = reservedTables[index];
             final tableData = tableDoc.data() as Map<String, dynamic>;
-            final numero = tableData['numero'] ?? '';
+            final numero = tableData['numero_mesa'] ?? ''; // CAMBIO: Leer 'numero_mesa'
             final nombreCliente = tableData['nombreCliente'] ?? 'Sin nombre';
             final contactoCliente =
                 tableData['contactoCliente']?.toString() ?? '';
@@ -539,18 +628,37 @@ class RestaurantScreen extends StatelessWidget {
     String mesaNumero,
   ) async {
     try {
-      await FirebaseFirestore.instance
+      // Obtener la reservación para encontrar el ID de la mesa asociada
+      final reservationRef = FirebaseFirestore.instance
           .collection('Restaurante')
           .doc(restaurantId)
           .collection('Reservas')
-          .doc(docId)
-          .delete();
+          .doc(docId);
+      final reservationSnapshot = await reservationRef.get();
 
+      if (!reservationSnapshot.exists) {
+        throw Exception('La reservación no fue encontrada.');
+      }
+
+      final reservationData = reservationSnapshot.data() as Map<String, dynamic>;
+      final tableId = reservationData['id_mesa'] as String?;
+
+      if (tableId != null && tableId.isNotEmpty) {
+        // Usar la función centralizada que actualiza la mesa y limpia todas las reservaciones asociadas
+        await FirebaseService.setTableAsAvailableAndClearReservation(
+          restaurantId: restaurantId,
+          tableId: tableId,
+        );
+      } else {
+        // Como fallback, si no hay mesa asociada, simplemente borrar la reservación
+        await reservationRef.delete();
+      }
+      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Reservación de Mesa $mesaNumero limpiada exitosamente',
+              'Reservación de Mesa ${mesaNumero.isNotEmpty ? mesaNumero : '?'} limpiada exitosamente',
             ),
             backgroundColor: Colors.green[600],
           ),
@@ -782,6 +890,18 @@ class RestaurantScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    Switch(
+                      value: estado,
+                      onChanged: (value) {
+                        _showToggleTableStatusConfirmation(
+                          context,
+                          mesa.id,
+                          numero.toString(),
+                          estado,
+                        );
+                      },
+                      activeColor: Colors.red[600],
                     ),
                   ],
                 ),

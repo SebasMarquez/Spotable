@@ -143,6 +143,7 @@ class _ReservationDialogState extends State<ReservationDialog> {
         'contactoCliente': _contactoController.text,
         'fecha_HoraReservacion': Timestamp.fromDate(_fechaHoraDeseada!),
         'id_mesa': _selectedMesa!.id,
+        'numero_mesa': _selectedMesa!.numero, // NUEVO: Guardar el número de la mesa
         'nombreCliente': nombreCliente,
         'cedulaCliente': cedulaCliente,
       };

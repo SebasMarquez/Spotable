@@ -161,7 +161,41 @@ class RestaurantListScreen extends StatelessWidget {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => RestaurantScreen(restaurantId: restaurantId),
+        builder: (context) => RestaurantScreen(
+          restaurantId: restaurantId,
+          onLogout: () {
+            // Navigate back to the welcome screen, clearing the navigation stack.
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => WelcomeScreen(
+                  onUserTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const UserIdentificationScreen(),
+                      ),
+                    );
+                  },
+                  onRestaurantTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RestaurantLoginScreen(
+                          onLogin: (String newRestaurantId) {
+                            // Re-use the same login logic
+                            _handleRestaurantLogin(context, newRestaurantId);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              (route) => false,
+            );
+          },
+        ),
       ),
     );
   }

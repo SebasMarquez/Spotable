@@ -172,7 +172,15 @@ class _RootNavigatorState extends State<_RootNavigator> {
           },
         );
       case AppScreen.restaurant:
-        return RestaurantScreen(restaurantId: _selectedRestaurantId!);
+        return RestaurantScreen(
+          restaurantId: _selectedRestaurantId!,
+          onLogout: () {
+            setState(() {
+              _currentScreen = AppScreen.welcome;
+              _selectedRestaurantId = null;
+            });
+          },
+        );
     }
   }
 
