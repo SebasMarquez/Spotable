@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/restaurant.dart';
-import 'reservation_screen.dart';
 import 'menu_screen.dart';
+import '../widgets/reservation_dialog.dart'; // Importa el nuevo widget de diálogo
 import '../widgets/orders_footer.dart';
 
 class SelectOptionScreen extends StatelessWidget {
@@ -117,15 +117,9 @@ class SelectOptionScreen extends StatelessWidget {
                     subtitle: 'Reserva tu mesa',
                     color: const Color(0xFF2E7D32),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ReservationScreen(
-                                restauranteId:
-                                    restaurant.id, // Usa restaurant.id
-                              ),
-                        ),
+                      showDialog(
+                        context: context,
+                        builder: (context) => ReservationDialog(restauranteId: restaurant.id),
                       );
                     },
                   ),

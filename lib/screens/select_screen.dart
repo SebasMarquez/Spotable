@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '/screens/menu_screen.dart';
-import '/screens/reservation_screen.dart';
+import '../widgets/reservation_dialog.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -13,11 +13,9 @@ class MainScreen extends StatelessWidget {
   }
 
   void _navigateToReservation(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReservationScreen(restauranteId: '1'),
-      ),
+    showDialog(
+      context: context,
+      builder: (context) => const ReservationDialog(restauranteId: '1'),
     );
   }
 
