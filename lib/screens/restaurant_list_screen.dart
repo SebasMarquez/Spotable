@@ -1,251 +1,273 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:restaurant_app/screens/restaurant_screen.dart';
-import '../services/firebase_service.dart';
 import '../models/restaurant.dart';
-import '../screens/select_option.dart';
-import '../screens/welcome_screen.dart';
-import '../screens/restaurant_login_screen.dart';
-import '../widgets/orders_footer.dart';
 import '../providers/user_provider.dart';
-import '../screens/user_identification_screen.dart'; // Added import
+import '../services/firebase_service.dart';
+import '../widgets/enriched_restaurant_card.dart';
+import '../widgets/category_carousel.dart';
+import '../widgets/restaurant_options_dialog.dart'; // Importamos el nuevo diálogo
+import 'user_profile_screen.dart';
 
-class RestaurantListScreen extends StatelessWidget {
-  final Function(Restaurant)? onRestaurantSelected;
+class RestaurantListScreen extends StatefulWidget {
+  // CORRECCIÓN: El constructor ya no necesita parámetros
+  const RestaurantListScreen({Key? key}) : super(key: key);
 
-  const RestaurantListScreen({Key? key, this.onRestaurantSelected})
-    : super(key: key);
+  @override
+  State<RestaurantListScreen> createState() => _RestaurantListScreenState();
+}
 
-  Future<bool> _onWillPop(BuildContext context) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    bool? exitConfirmed = await showDialog<bool>(
+class _RestaurantListScreenState extends State<RestaurantListScreen> {
+  String? _selectedCategory;
+  List<Restaurant>? _filteredRestaurants;
+  bool _isLoadingFiltered = false;
+  List<Restaurant>? _allRestaurantsData;
+  final FirebaseService _firebaseService = FirebaseService();
+
+  // Función para mostrar el diálogo de opciones del restaurante
+  void _showRestaurantOptionsDialog(Restaurant restaurant) {
+    showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.white, // Added background color
-            title: const Text('Confirmar salida'),
-            content: const Text(
-              '¿Seguro que deseas salir? Se borrarán tus datos de sesión.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  userProvider.clearUser();
-                  Navigator.of(context).pop(true);
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ), // Added button color
-                child: const Text('Sí'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ), // Added button color
-                child: const Text('No'),
-              ),
-            ],
-          ),
+      builder: (context) => RestaurantOptionsDialog(restaurant: restaurant),
     );
-    return exitConfirmed ?? false;
+  }
+
+  void _onCategoryTap(String category) async {
+    if (_selectedCategory == category) {
+      setState(() {
+        _selectedCategory = null;
+        _filteredRestaurants = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _selectedCategory = category;
+      _isLoadingFiltered = true;
+      _filteredRestaurants = null;
+    });
+
+    final results = await _firebaseService.getRestaurantsByCategory(category);
+
+    if (mounted) {
+      setState(() {
+        _filteredRestaurants = results;
+        _isLoadingFiltered = false;
+      });
+    }
+  }
+
+  Future<void> _showLogoutDialog() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Salida'),
+        content: const Text('¿Estás seguro de que deseas cerrar la sesión?'),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('No')),
+          TextButton(
+            onPressed: () {
+              userProvider.clearUser();
+              Navigator.of(context).pop(true);
+            },
+            child: const Text('Sí, Salir'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () => _onWillPop(context),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Selecciona un restaurante'),
-          backgroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () async {
-              bool shouldPop = await _onWillPop(context);
-              if (shouldPop) {
-                // Navegar de vuelta a WelcomeScreen con los callbacks correctos
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder:
-                        (context) => WelcomeScreen(
-                          onUserTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) =>
-                                        const UserIdentificationScreen(), // Changed to UserIdentificationScreen
-                              ),
-                            );
-                          },
-                          onRestaurantTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => RestaurantLoginScreen(
-                                      onLogin: (String restaurantId) {
-                                        // Manejar el login exitoso del restaurante
-                                        _handleRestaurantLogin(
-                                          context,
-                                          restaurantId,
-                                        );
-                                      },
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                  ),
-                  (route) => false,
-                );
-              }
+    final user = Provider.of<UserProvider>(context).user;
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: false,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hola, ${user?.nombre.split(' ').first ?? 'Usuario'} 👋', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
+            const Text('¿Qué se te antoja hoy?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+          ],
+        ),
+        actions: [
+          // BOTÓN DE CARRITO / PEDIDOS
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black, size: 28),
+            tooltip: 'Mis Pedidos',
+            onPressed: () {
+              Navigator.push(
+                context,
+                // Navega a la pantalla de perfil, abriendo directamente la pestaña de pedidos.
+                MaterialPageRoute(builder: (context) => const UserProfileScreen(initialTabIndex: 0)),
+              );
             },
           ),
-        ),
-        body: FutureBuilder<List<Restaurant>>(
-          future: FirebaseService().getRestaurants(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(
-                child: Text('No hay restaurantes disponibles.'),
+          // BOTÓN DE PERFIL
+          IconButton(
+            icon: const Icon(Icons.person_outline_rounded, color: Colors.black, size: 28),
+            tooltip: 'Mi Perfil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                // Navega a la pantalla de perfil, abriendo la pestaña de reservas.
+                MaterialPageRoute(builder: (context) => const UserProfileScreen(initialTabIndex: 1)),
               );
-            }
-            final restaurants = snapshot.data!;
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.black, size: 28),
+            tooltip: 'Cerrar Sesión',
+            onPressed: _showLogoutDialog,
+          ),
+        ],
+        automaticallyImplyLeading: false,
+      ),
+      body: FutureBuilder<List<Restaurant>>(
+        future: _firebaseService.getRestaurants(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && _allRestaurantsData == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error al cargar los restaurantes.'));
+          }
+          if (snapshot.hasData) {
+            _allRestaurantsData = snapshot.data!;
+          }
+          final allRestaurants = _allRestaurantsData ?? [];
+          final recommendedRestaurants = allRestaurants.take(4).toList();
+          return ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Busca platos o restaurantes...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor: Colors.grey.shade200,
+                  ),
                 ),
-                itemCount: restaurants.length,
-                itemBuilder: (context, index) {
-                  final restaurant = restaurants[index];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) =>
-                                  SelectOptionScreen(restaurant: restaurant),
-                        ),
-                      );
-                    },
-                    child: RestaurantCard(restaurant: restaurant),
-                  );
-                },
               ),
-            );
-          },
-        ),
-        bottomNavigationBar: const OrdersFooter(),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text("o busca por categoría", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 16),
+              CategoryCarousel(onCategorySelected: _onCategoryTap, selectedCategory: _selectedCategory),
+              _buildFilteredResults(),
+              if (_selectedCategory == null) ...[
+                const SizedBox(height: 24),
+                _HorizontalRestaurantSection(title: 'Recomendados para ti ✨', restaurants: recommendedRestaurants, onRestaurantTap: _showRestaurantOptionsDialog),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 16.0),
+                  child: Text('Todos los Restaurantes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 0.80),
+                  itemCount: allRestaurants.length,
+                  itemBuilder: (context, index) {
+                    final restaurant = allRestaurants[index];
+                    return GestureDetector(onTap: () => _showRestaurantOptionsDialog(restaurant), child: EnrichedRestaurantCard(restaurant: restaurant));
+                  },
+                ),
+                const SizedBox(height: 20),
+              ]
+            ],
+          );
+        },
       ),
     );
   }
 
-  // Método separado para manejar el login del restaurante
-  void _handleRestaurantLogin(BuildContext context, String restaurantId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Login exitoso para restaurante ID: $restaurantId'),
-      ),
-    );
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => RestaurantScreen(
-          restaurantId: restaurantId,
-          onLogout: () {
-            // Navigate back to the welcome screen, clearing the navigation stack.
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => WelcomeScreen(
-                  onUserTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const UserIdentificationScreen(),
-                      ),
-                    );
-                  },
-                  onRestaurantTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RestaurantLoginScreen(
-                          onLogin: (String newRestaurantId) {
-                            // Re-use the same login logic
-                            _handleRestaurantLogin(context, newRestaurantId);
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              (route) => false,
-            );
-          },
+  Widget _buildFilteredResults() {
+    return AnimatedCrossFade(
+      firstChild: Container(),
+      secondChild: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Resultados para "$_selectedCategory"', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            if (_isLoadingFiltered)
+              const Center(child: CircularProgressIndicator())
+            else if (_filteredRestaurants == null || _filteredRestaurants!.isEmpty)
+              const Center(child: Text('Próximamente... 🧑‍🍳', style: TextStyle(fontSize: 16, color: Colors.grey)))
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _filteredRestaurants!.length,
+                separatorBuilder: (context, index) => const Divider(),
+                itemBuilder: (context, index) {
+                  final restaurant = _filteredRestaurants![index];
+                  Widget imageWidget;
+                  if (restaurant.imageUrl.startsWith('assets/')) {
+                    imageWidget = Image.asset(restaurant.imageUrl, fit: BoxFit.cover);
+                  } else if (restaurant.imageUrl.startsWith('http')) {
+                    imageWidget = Image.network(restaurant.imageUrl, fit: BoxFit.cover);
+                  } else {
+                    imageWidget = const Icon(Icons.restaurant, color: Colors.grey);
+                  }
+                  return ListTile(
+                    leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 56, height: 56, child: imageWidget)),
+                    title: Text(restaurant.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(restaurant.categories.join(', ')),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showRestaurantOptionsDialog(restaurant),
+                  );
+                },
+              )
+          ],
         ),
       ),
+      crossFadeState: _selectedCategory != null ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+      duration: const Duration(milliseconds: 300),
     );
   }
 }
 
-class RestaurantCard extends StatelessWidget {
-  final Restaurant restaurant;
-
-  const RestaurantCard({Key? key, required this.restaurant}) : super(key: key);
-
+class _HorizontalRestaurantSection extends StatelessWidget {
+  final String title;
+  final List<Restaurant> restaurants;
+  final Function(Restaurant) onRestaurantTap;
+  const _HorizontalRestaurantSection({required this.title, required this.restaurants, required this.onRestaurantTap});
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            restaurant.imageUrl.isNotEmpty
-                ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    restaurant.imageUrl,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder:
-                        (context, error, stackTrace) =>
-                            const Icon(Icons.restaurant, size: 60),
-                  ),
-                )
-                : const Icon(Icons.restaurant, size: 60),
-            const SizedBox(height: 12),
-            Text(
-              restaurant.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-                color: Color(0xFFB71C1C),
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         ),
-      ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 230,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            clipBehavior: Clip.none,
+            scrollDirection: Axis.horizontal,
+            itemCount: restaurants.length,
+            itemBuilder: (context, index) {
+              final restaurant = restaurants[index];
+              return SizedBox(
+                width: 170,
+                child: GestureDetector(onTap: () => onRestaurantTap(restaurant), child: EnrichedRestaurantCard(restaurant: restaurant)),
+              );
+            },
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+          ),
+        ),
+      ],
     );
   }
 }

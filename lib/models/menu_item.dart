@@ -1,13 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Modelo de datos para los platos del menú
 class MenuItem {
   final String? id;
   final String name;
   final double price;
   final String image;
   final String description;
-  final String category;
+  final List<String> category; // CAMBIO: Ahora es una lista de Strings
   final bool available;
 
   MenuItem({
@@ -16,60 +15,45 @@ class MenuItem {
     required this.price,
     required this.image,
     required this.description,
-    required this.category,
+    required this.category, // CAMBIO: Ahora espera una lista
     this.available = true,
   });
 
-  // Crear MenuItem desde Firestore
   static MenuItem fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    final categoriesData = data['Categoria'];
+    List<String> categories;
+    if (categoriesData is List) {
+      // Filtramos cualquier valor nulo y luego lo convertimos a String.
+      categories = categoriesData
+          .where((item) => item != null)
+          .map((item) => item.toString()).toList();
+    } else if (categoriesData is String) {
+      categories = [categoriesData];
+    } else {
+      categories = [];
+    }
 
     return MenuItem(
       id: doc.id,
       name: data['Nombre'] ?? '',
       description: data['Descripción'] ?? '',
       price: (data['Precio'] ?? 0).toDouble(),
-      category: data['Categoria'] ?? '',
+      category: categories,
       image: data['Imagen'] ?? '',
       available: data['available'] ?? true,
     );
   }
 
-  // Convertir MenuItem a Map para Firestore
   Map<String, dynamic> toMap() {
     return {
       'Nombre': name,
       'Descripción': description,
       'Precio': price,
-      'Categoria': category,
+      'Categoria': category, // Guardamos la lista
       'Imagen': image,
       'available': available,
     };
-  }
-
-  // Método copyWith para actualizaciones
-  MenuItem copyWith({
-    String? id,
-    String? name,
-    String? description,
-    double? price,
-    String? category,
-    //String? imageUrl,
-    bool? available,
-  }) {
-    return MenuItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      price: price ?? this.price,
-      category: category ?? this.category,
-      image: image ?? image,
-      available: available ?? this.available,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'MenuItem(id: $id, name: $name, price: $price, category: $category, image: $image)';
   }
 }

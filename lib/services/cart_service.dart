@@ -50,13 +50,11 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Cambio: usar String en lugar de int para el ID del menuItem
   void removeFromCart(String menuItemId) {
     _cartItems.removeWhere((item) => item.menuItem.id == menuItemId);
     notifyListeners();
   }
 
-  // Cambio: usar String en lugar de int para el ID del menuItem
   void updateQuantity(String menuItemId, int newQuantity) {
     if (newQuantity <= 0) {
       removeFromCart(menuItemId);
@@ -74,7 +72,6 @@ class CartService extends ChangeNotifier {
   }
 
   /// Incrementar cantidad de un item específico
-  // Cambio: usar String en lugar de int para el ID del menuItem
   void incrementItem(String menuItemId) {
     final itemIndex = _cartItems.indexWhere(
       (item) => item.menuItem.id == menuItemId,
@@ -87,7 +84,6 @@ class CartService extends ChangeNotifier {
   }
 
   /// Decrementar cantidad de un item específico
-  // Cambio: usar String en lugar de int para el ID del menuItem
   void decrementItem(String menuItemId) {
     final itemIndex = _cartItems.indexWhere(
       (item) => item.menuItem.id == menuItemId,
@@ -98,35 +94,33 @@ class CartService extends ChangeNotifier {
         _cartItems[itemIndex].quantity--;
         notifyListeners();
       } else {
-        // Si la cantidad es 1, eliminar el item completamente
         removeFromCart(menuItemId);
       }
     }
   }
 
   /// Obtener la cantidad de un item específico
-  // Cambio: usar String en lugar de int para el ID del menuItem y crear MenuItem con todos los parámetros requeridos
-  int getItemQuantity(String menuItemId) {
+    int getItemQuantity(String menuItemId) {
     final item = _cartItems.firstWhere(
       (item) => item.menuItem.id == menuItemId,
-      orElse:
-          () => CartItem(
-            menuItem: MenuItem(
-              id: 'not-found',
-              name: '',
-              price: 0,
-              image: '', // Parámetro requerido agregado
-              description: '', // Parámetro requerido agregado
-              category: '', // Parámetro requerido agregado
-            ),
-            quantity: 0,
-          ),
+      orElse: () => CartItem(
+        menuItem: MenuItem(
+          id: 'not-found',
+          name: '',
+          price: 0,
+          image: '',
+          description: '',
+          // CORRECCIÓN: Se pasa una lista vacía
+          category: [], 
+        ),
+        quantity: 0,
+      ),
     );
     return item.quantity;
   }
 
+
   /// Verificar si un item está en el carrito
-  // Cambio: usar String en lugar de int para el ID del menuItem
   bool isItemInCart(String menuItemId) {
     return _cartItems.any((item) => item.menuItem.id == menuItemId);
   }
@@ -152,34 +146,24 @@ class CartService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Crear el mapa de items según tu estructura de Firebase
       Map<String, dynamic> itemsMap = {};
       for (var cartItem in _cartItems) {
         itemsMap[cartItem.menuItem.name] = cartItem.quantity;
       }
 
-      // Crear la orden con la estructura específica de tu Firebase
       Map<String, dynamic> orderData = {
         'Items': itemsMap,
         'total': totalPrice,
-        //'createdAt': FieldValue.serverTimestamp(), // Agregar timestamp para ordenamiento
       };
 
-      // Guardar en Firebase usando el nuevo método
       final orderId = await FirebaseService.createOrder(
         _currentRestaurantId!,
         orderData,
       );
 
       print('✅ Orden creada exitosamente con ID: $orderId');
-      print('🏪 Restaurante: $_currentRestaurantId');
-      print('📋 Items: ${itemsMap.toString()}');
-      print('💰 Total: \$${totalPrice.toStringAsFixed(2)}');
-      print('🕒 Timestamp: ${DateTime.now().toIso8601String()}');
-
-      // Limpiar el carrito después de crear la orden exitosamente
+      
       clearCart();
-
       _isPlacingOrder = false;
       notifyListeners();
 
@@ -198,14 +182,11 @@ class CartService extends ChangeNotifier {
     required DeliveryType deliveryType,
     String? deliveryAddress,
   }) async {
-    // Obtener UserProvider para acceder a los datos del usuario
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userData = userProvider.user;
 
     if (userData == null) {
-      print(
-        '❌ Error: Datos de usuario no disponibles para realizar el pedido.',
-      );
+      print('❌ Error: Datos de usuario no disponibles para realizar el pedido.');
       return false;
     }
 
@@ -217,7 +198,6 @@ class CartService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Obtener la reserva activa más reciente del usuario
       final activeReservationSnapshot =
           await FirebaseFirestore.instance
               .collection('Usuario')
@@ -236,61 +216,40 @@ class CartService extends ChangeNotifier {
         idMesa = reservationData['id_mesa'] as String?;
         idRestaurante = reservationData['id_restaurante'] as String?;
         nombreRestaurante = reservationData['nombre_restaurante'] as String?;
-        print(
-          'ℹ️ Reserva activa encontrada: Mesa $idMesa, Restaurante $idRestaurante ($nombreRestaurante)',
-        );
       } else {
-        print('ℹ️ No se encontraron reservas activas para el usuario.');
         if (_currentRestaurantId != null) {
           idRestaurante = _currentRestaurantId;
-          // Attempt to get restaurant name if only ID is available from _currentRestaurantId
           try {
             final restDoc =
                 await FirebaseFirestore.instance
                     .collection('Restaurante')
                     .doc(_currentRestaurantId!)
                     .get();
-            nombreRestaurante =
-                restDoc.data()?['nombre'] ??
-                'Restaurante (ID: $_currentRestaurantId)';
+            nombreRestaurante = restDoc.data()?['nombre'] ?? 'Restaurante';
           } catch (e) {
-            print(
-              'Error fetching restaurant name for $_currentRestaurantId: $e',
-            );
-            nombreRestaurante = 'Restaurante (ID: $_currentRestaurantId)';
+            nombreRestaurante = 'Restaurante';
           }
-          print(
-            'ℹ️ Usando _currentRestaurantId: $idRestaurante ($nombreRestaurante) para el pedido.',
-          );
         }
       }
 
       if (idRestaurante == null || idRestaurante.isEmpty) {
-        print(
-          '❌ Error: ID del restaurante es desconocido. No se puede crear el pedido.',
-        );
+        print('❌ Error: ID del restaurante es desconocido.');
         _isPlacingOrder = false;
         notifyListeners();
         return false;
       }
-      nombreRestaurante ??= 'Restaurante (ID: $idRestaurante)';
+      nombreRestaurante ??= 'Restaurante';
 
       final orderItems =
           _cartItems.map((cartItem) {
             if (cartItem.menuItem.id == null) {
-              print(
-                'Error: menuItem.id es nulo para ${cartItem.menuItem.name}',
-              );
-              throw Exception(
-                'ID de menuItem nulo durante la creación del pedido.',
-              );
+              throw Exception('ID de menuItem nulo durante la creación del pedido.');
             }
             return OrderItem(
               menuItemId: cartItem.menuItem.id!,
               name: cartItem.menuItem.name,
               quantity: cartItem.quantity,
               price: cartItem.menuItem.price,
-              // notes field removed
             );
           }).toList();
 
@@ -303,36 +262,19 @@ class CartService extends ChangeNotifier {
       final order = app_order.Order(
         id: customOrderId,
         items: orderItems,
-        total: totalPrice, // Make sure totalPrice is calculated correctly
+        total: totalPrice,
         restauranteId: idRestaurante,
         restauranteName: nombreRestaurante,
-        estado: 'Generado', // Initial state set to "Generado"
+        estado: 'Generado',
         createdAt: DateTime.now(),
-        cedulaCliente: userData.cedula, // Correctly assigning cedulaCliente
-        deliveryType: deliveryType.name, // Asignar directamente en el modelo
-        deliveryAddress: deliveryAddress, // Asignar directamente en el modelo
+        cedulaCliente: userData.cedula,
+        deliveryType: deliveryType.name,
+        deliveryAddress: deliveryAddress,
       );
 
       final orderData = order.toMap();
       if (idMesa != null) {
         orderData['idMesa'] = idMesa;
-      }
-
-      print(
-        'DEBUG CartService: Preparando para guardar pedido con ID: $customOrderId',
-      );
-      print('DEBUG CartService: Datos del pedido a guardar: $orderData');
-      print(
-        'DEBUG CartService: Cedula en pedido (del modelo): ${order.cedulaCliente}',
-      );
-      print('DEBUG CartService: Estado en pedido: ${order.estado}');
-      print(
-        'DEBUG CartService: Restaurante ID en pedido: ${order.restauranteId}',
-      );
-      if (idMesa != null) {
-        print(
-          'DEBUG CartService: ID Mesa (añadido al mapa): ${orderData['idMesa']}',
-        );
       }
 
       await FirebaseFirestore.instance
@@ -341,12 +283,6 @@ class CartService extends ChangeNotifier {
           .collection('Order')
           .doc(customOrderId)
           .set(orderData);
-
-      print('✅ Orden simple creada exitosamente con ID: $customOrderId');
-      print('👤 Cliente: ${userData.nombre} (Cédula: ${userData.cedula})');
-      print(
-        '🍽️ Mesa: $idMesa en Restaurante: $nombreRestaurante ($idRestaurante)',
-      );
 
       clearCart();
       _isPlacingOrder = false;
@@ -361,7 +297,7 @@ class CartService extends ChangeNotifier {
     }
   }
 
-  /// Crear orden especificando directamente el restaurante (útil para casos especiales)
+  /// Crear orden especificando directamente el restaurante
   Future<bool> placeOrderForRestaurant({
     required String restaurantId,
     String? customerName,
@@ -369,7 +305,6 @@ class CartService extends ChangeNotifier {
     String? notes,
   }) async {
     if (_cartItems.isEmpty) {
-      print('❌ Error: El carrito está vacío');
       return false;
     }
 
@@ -377,40 +312,26 @@ class CartService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Crear el mapa de items según tu estructura de Firebase
       Map<String, dynamic> itemsMap = {};
       for (var cartItem in _cartItems) {
         itemsMap[cartItem.menuItem.name] = cartItem.quantity;
       }
 
-      // Crear la orden con la estructura específica de tu Firebase
       Map<String, dynamic> orderData = {
         'Items': itemsMap,
         'total': totalPrice,
-        //'createdAt': FieldValue.serverTimestamp(),
-        //'status': 'pending',
       };
 
-      // Agregar información del cliente si se proporciona
       if (customerName != null) orderData['customerName'] = customerName;
       if (customerPhone != null) orderData['customerPhone'] = customerPhone;
       if (notes != null && notes.isNotEmpty) orderData['notes'] = notes;
 
-      // Guardar en Firebase usando el nuevo método
-      final orderId = await FirebaseService.createOrder(
+      await FirebaseService.createOrder(
         restaurantId,
         orderData,
       );
 
-      print('✅ Orden creada exitosamente con ID: $orderId');
-      print('🏪 Restaurante: $restaurantId');
-      print('📋 Items: ${itemsMap.toString()}');
-      print('💰 Total: \${totalPrice.toStringAsFixed(2)}');
-      print('🕒 Timestamp: ${DateTime.now().toIso8601String()}');
-
-      // Limpiar el carrito después de crear la orden exitosamente
       clearCart();
-
       _isPlacingOrder = false;
       notifyListeners();
 
@@ -422,6 +343,7 @@ class CartService extends ChangeNotifier {
       return false;
     }
   }
+  
 
   /// Obtener el resumen de la orden antes de confirmar
   Map<String, dynamic> getOrderSummary() {

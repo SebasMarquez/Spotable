@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
-import 'screens/menu_screen.dart';
-import 'package:intl/date_symbol_data_local.dart'; // Corrección de la ruta de importación
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+
 import 'screens/welcome_screen.dart';
 import 'screens/restaurant_screen.dart';
 import 'utils/app_colors.dart';
-import 'package:provider/provider.dart';
 import 'services/cart_service.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/restaurant_list_screen.dart';
-import 'models/restaurant.dart';
-import 'screens/restaurant_login_screen.dart';
-import 'screens/menu_mngmt_screen.dart';
-import 'services/firebase_service.dart';
-import 'screens/user_identification_screen.dart';
 import 'providers/user_provider.dart';
+import 'widgets/user_login_dialog.dart';
+import 'widgets/restaurant_login_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +32,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Restaurante App',
+      title: 'Spotable',
       theme: ThemeData(
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: AppColors.background,
@@ -49,8 +46,6 @@ class MyApp extends StatelessWidget {
 enum AppScreen {
   welcome,
   restaurantList,
-  menu,
-  restaurantLogin,
   restaurant,
 }
 
@@ -62,115 +57,69 @@ class _RootNavigator extends StatefulWidget {
 class _RootNavigatorState extends State<_RootNavigator> {
   AppScreen _currentScreen = AppScreen.welcome;
   String? _selectedRestaurantId;
-  UserProvider? _userProvider; // Added
+  UserProvider? _userProvider;
 
   @override
   void didChangeDependencies() {
-    // Changed from initState
     super.didChangeDependencies();
     final userProvider = Provider.of<UserProvider>(context);
     if (_userProvider != userProvider) {
       _userProvider?.removeListener(_onUserChanged);
       _userProvider = userProvider;
       _userProvider?.addListener(_onUserChanged);
-      // Initialize screen based on current user state
-      _onUserChanged(); // Call it once to set initial screen
+      _onUserChanged();
     }
   }
 
   @override
   void dispose() {
-    _userProvider?.removeListener(_onUserChanged); // Added
+    _userProvider?.removeListener(_onUserChanged);
     super.dispose();
   }
 
   void _onUserChanged() {
-    // Added listener method
+    if (!mounted) return;
     final user = _userProvider?.user;
-    if (mounted) {
-      // Ensure the widget is still in the tree
-      if (user != null) {
-        // If user is logged in and we are on a public screen, navigate to the main authenticated screen.
-        if (_currentScreen == AppScreen.welcome || _currentScreen == AppScreen.restaurantLogin) {
-          setState(() {
-            _currentScreen = AppScreen.restaurantList;
-          });
-        }
-      } else { // User is null (logged out)
-        // If user is logged out and we are on a private screen, navigate to the welcome screen.
-        if (_currentScreen != AppScreen.welcome && _currentScreen != AppScreen.restaurantLogin) {
-          setState(() {
-            _currentScreen = AppScreen.welcome;
-            _selectedRestaurantId = null; // Clear selected restaurant on logout
-          });
-        }
+    if (user != null) {
+      if (_currentScreen == AppScreen.welcome) {
+        setState(() {
+          _currentScreen = AppScreen.restaurantList;
+        });
+      }
+    } else {
+      if (_currentScreen != AppScreen.welcome) {
+        setState(() {
+          _currentScreen = AppScreen.welcome;
+          _selectedRestaurantId = null;
+        });
       }
     }
   }
 
   Widget _buildScreen() {
-    // Potentially add a check here for userProvider.user and navigate
-    // but _onUserChanged should handle it.
-
     switch (_currentScreen) {
       case AppScreen.welcome:
         return WelcomeScreen(
-          onUserTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const UserIdentificationScreen()),
-          ),
-          onRestaurantTap: () {
-            setState(() {
-              _currentScreen = AppScreen.restaurantLogin;
-            });
+          onUserTap: () {
+            showDialog(context: context, builder: (context) => const UserLoginDialog());
           },
-        );
-      case AppScreen.restaurantList:
-        return RestaurantListScreen(
-          onRestaurantSelected: (Restaurant restaurant) {
-            setState(() {
-              _selectedRestaurantId = restaurant.id;
-              _currentScreen = AppScreen.menu;
-            });
-          },
-        );
-      case AppScreen.menu:
-        return MenuScreen(restaurantId: _selectedRestaurantId!);
-      case AppScreen.restaurantLogin:
-        return RestaurantLoginScreen(
-          onLogin: (String id) async {
-            showDialog(
+          onRestaurantTap: () async {
+            final String? restaurantId = await showDialog<String>(
               context: context,
-              barrierDismissible: false,
-              builder:
-                  (context) => const Center(child: CircularProgressIndicator()),
+              builder: (context) => const RestaurantLoginDialog(),
             );
-            final exists = await FirebaseService().restaurantExists(id);
-            Navigator.of(context).pop(); // Cierra el loader
-            if (exists) {
+            if (restaurantId != null && restaurantId.isNotEmpty) {
               setState(() {
                 _currentScreen = AppScreen.restaurant;
-                _selectedRestaurantId = id;
+                _selectedRestaurantId = restaurantId;
               });
-            } else {
-              showDialog(
-                context: context,
-                builder:
-                    (context) => AlertDialog(
-                      title: const Text('ID incorrecto'),
-                      content: const Text(
-                        'No existe un restaurante con ese ID.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-              );
             }
           },
         );
+      case AppScreen.restaurantList:
+        // CORRECCIÓN: Se elimina el parámetro onRestaurantSelected
+        return const RestaurantListScreen();
+      
       case AppScreen.restaurant:
         return RestaurantScreen(
           restaurantId: _selectedRestaurantId!,
@@ -188,11 +137,4 @@ class _RootNavigatorState extends State<_RootNavigator> {
   Widget build(BuildContext context) {
     return _buildScreen();
   }
-
-  @override
-  void initState() {
-    super.initState();
-    // showWelcomeScreen(); // Commented out, didChangeDependencies will handle initial setup
-    // Initial listener setup will be in didChangeDependencies
-  }
-  }
+}

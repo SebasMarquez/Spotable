@@ -7,43 +7,61 @@ class MenuItemCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const MenuItemCard({Key? key, required this.menuItem, required this.onTap})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Card(
+        clipBehavior: Clip.antiAlias, // Importante para que el ClipRRect funcione
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // IMAGEN CORREGIDA - Ahora muestra la imagen correctamente
+            // IMAGEN CORREGIDA Y ACTUALIZADA
             Expanded(flex: 3, child: _buildImageWidget()),
 
             // INFORMACIÓN DEL PLATO
             Expanded(
               flex: 2,
               child: Padding(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // NOMBRE
-                    Text(
-                      menuItem.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // NOMBRE
+                        Text(
+                          menuItem.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        
+                        // CATEGORÍAS AÑADIDAS
+                        if (menuItem.category.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            menuItem.category.join(', '), // Une la lista de categorías con comas
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
                     ),
-
-                    Spacer(),
 
                     // PRECIO
                     Text(
@@ -64,68 +82,54 @@ class MenuItemCard extends StatelessWidget {
     );
   }
 
+  // --- WIDGET DE IMAGEN ACTUALIZADO ---
   Widget _buildImageWidget() {
-    // Verificar si la imagen existe y es válida
-    if (menuItem.image.isEmpty) {
-      return _buildPlaceholder();
-    }
+    Widget image;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(12),
-        topRight: Radius.circular(12),
-      ),
-      child: Image.network(
+    if (menuItem.image.startsWith('assets/')) {
+      // Si la ruta comienza con 'assets/', usamos Image.asset
+      image = Image.asset(
         menuItem.image,
-        fit:
-            BoxFit
-                .cover, // Importante: esto hace que la imagen cubra todo el espacio
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+      );
+    } else if (menuItem.image.startsWith('http')) {
+      // Si comienza con 'http', asumimos que es una URL de red
+      image = Image.network(
+        menuItem.image,
+        fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return Container(
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                value:
-                    loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-              ),
-            ),
-          );
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         },
         errorBuilder: (context, error, stackTrace) {
           print('Error cargando imagen: $error');
           return _buildPlaceholder();
         },
+      );
+    } else {
+      // Si no hay ninguna imagen o la ruta no es válida, mostramos el placeholder
+      image = _buildPlaceholder();
+    }
+    
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(12),
+        topRight: Radius.circular(12),
       ),
+      child: image,
     );
   }
 
   Widget _buildPlaceholder() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
+      color: Colors.grey[100],
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.restaurant, size: 32, color: Colors.grey[400]),
-            SizedBox(height: 4),
-            Text(
-              'Sin imagen',
-              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-            ),
-          ],
-        ),
+        child: Icon(Icons.restaurant_menu, size: 32, color: Colors.grey[400]),
       ),
     );
   }

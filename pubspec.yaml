@@ -30,12 +30,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Las líneas incorrectas de 'uses-material-design' y 'assets' se han eliminado de aquí.
   provider: ^6.0.5
   cupertino_icons: ^1.0.8
   firebase_core: ^2.0.0
   cloud_firestore: ^4.17.5
   rxdart: ^0.28.0
   intl: ^0.19.0
+  file_picker: ^6.2.1
+
 
 dev_dependencies:
   flutter_test:
@@ -53,7 +56,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
+  # LA SECCIÓN DE ASSETS SE HA CORREGIDO AQUÍ:
+  assets:
+    - assets/images/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

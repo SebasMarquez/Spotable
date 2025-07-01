@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Para formatear la fecha
 import '../services/firebase_service.dart';
-import 'menu_mngmt_screen.dart';
+import '../widgets/menu_management_dialog.dart'; // Importamos el nuevo diálogo
 import '../utils/app_colors.dart';
-import '../models/order.dart' as app_order; // Alias your Order model to avoid conflict
-import '../widgets/order_card.dart'; // Import the new OrderCard widget
+import '../models/order.dart' as app_order;
+import '../widgets/order_card.dart';
 
 class RestaurantScreen extends StatelessWidget {
   final String restaurantId;
   final VoidCallback onLogout;
 
-  const RestaurantScreen(
-      {Key? key, required this.restaurantId, required this.onLogout})
+  const RestaurantScreen({Key? key, required this.restaurantId, required this.onLogout})
       : super(key: key);
 
-  // Nuevo método para actualizar el estado del pedido
-  Future<void> _updateOrderStatus(
-      BuildContext context, String orderId, String newStatus) async {
+  // --- MÉTODOS PARA GESTIÓN DE ÓRDENES ---
+  Future<void> _updateOrderStatus(BuildContext context, String orderId, String newStatus) async {
     try {
-      // Usar FirebaseService para actualizar el estado
       await FirebaseService.updateOrderEstado(
         restaurantId: restaurantId,
         orderId: orderId,
@@ -26,50 +24,32 @@ class RestaurantScreen extends StatelessWidget {
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Estado del pedido actualizado a "$newStatus"'),
-            backgroundColor: AppColors.secondary,
-          ),
+          SnackBar(content: Text('Estado del pedido actualizado a "$newStatus"')),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar el estado: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error al actualizar el estado: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // NUEVO: Método para mostrar el diálogo de confirmación
-  void _showStatusChangeConfirmation(
-      BuildContext context, app_order.Order order, String nextStatus) {
+  void _showStatusChangeConfirmation(BuildContext context, app_order.Order order, String nextStatus) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirmar Cambio de Estado'),
-          content: Text(
-              '¿Estás seguro de que deseas cambiar el estado del pedido #${order.id.substring(0, 8)}... de "${order.estado}" a "$nextStatus"?'),
+          content: Text('¿Estás seguro de que deseas cambiar el estado del pedido a "$nextStatus"?'),
           actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-              },
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                _updateOrderStatus(context, order.id, nextStatus); // Ejecutar el cambio
+                Navigator.of(context).pop();
+                _updateOrderStatus(context, order.id, nextStatus);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _getNextStatusButtonColor(order.estado), // Usa el color del siguiente estado
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Confirmar'),
             ),
           ],
@@ -78,84 +58,35 @@ class RestaurantScreen extends StatelessWidget {
     );
   }
 
-  // NUEVO: Método para mostrar diálogo de confirmación para cambiar estado de mesa
-  void _showToggleTableStatusConfirmation(
-    BuildContext context,
-    String tableId,
-    String tableNumber,
-    bool currentStatus,
-  ) {
+  // --- NUEVO: MÉTODO PARA MOSTRAR DETALLES DE LA RESERVA ---
+  void _showReservationDetailsDialog(BuildContext context, Map<String, dynamic> reservationData) {
+    final String clientName = reservationData['nombreCliente'] ?? 'No especificado';
+    final Timestamp? reservationTimestamp = reservationData['fecha_HoraReservacion'];
+    final String reservationTime = reservationTimestamp != null
+        ? DateFormat('dd/MM/yyyy HH:mm').format(reservationTimestamp.toDate())
+        : 'No especificada';
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Cambiar Estado de Mesa'),
-          content: Text(
-            '¿Estás seguro de que deseas cambiar el estado de la Mesa $tableNumber a "${currentStatus ? 'Disponible' : 'Ocupada'}"?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-              },
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-                _toggleTableStatus(
-                    context, tableId, currentStatus); // Ejecutar el cambio
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: currentStatus ? Colors.green : Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Confirmar'),
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Detalles de la Reserva'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cliente: $clientName'),
+            const SizedBox(height: 8),
+            Text('Fecha y Hora: $reservationTime'),
           ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
-  }
-
-  // NUEVO: Método para cambiar el estado de la mesa
-  Future<void> _toggleTableStatus(
-      BuildContext context, String tableId, bool currentStatus) async {
-    try {
-      // Si el estado actual es 'Ocupada' (true), al cambiarlo a 'Disponible' (false)
-      // debemos limpiar la reservación asociada.
-      if (currentStatus) {
-        await FirebaseService.setTableAsAvailableAndClearReservation(
-          restaurantId: restaurantId,
-          tableId: tableId,
-        );
-      } else {
-        // Si el estado actual es 'Disponible' (false), simplemente lo cambiamos a 'Ocupada' (true).
-        await FirebaseService.updateTableStatus(
-          restaurantId: restaurantId,
-          tableId: tableId,
-          isOccupied: true,
-        );
-      }
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Estado de la mesa actualizado.'),
-            backgroundColor: AppColors.secondary,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar el estado de la mesa: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   @override
@@ -166,24 +97,10 @@ class RestaurantScreen extends StatelessWidget {
       future: firebaseService.fetchRestaurantInfo(restaurantId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        if (snapshot.hasError) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Error')),
-            body: Center(child: Text('Error: ${snapshot.error}')),
-          );
-        }
-        if (!snapshot.hasData || snapshot.data == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Restaurante no encontrado')),
-            body: _buildEmptyState(
-              icon: Icons.restaurant_menu,
-              message: 'No se encontró información para este restaurante.',
-            ),
-          );
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+          return Scaffold(appBar: AppBar(title: const Text('Error')), body: const Center(child: Text('No se pudo cargar la información del restaurante.')));
         }
 
         final data = snapshot.data!;
@@ -194,108 +111,34 @@ class RestaurantScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text('Panel Restaurante'),
             backgroundColor: Colors.red[600],
-            elevation: 0,
-            leading: Navigator.of(context).canPop()
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
-                  )
-                : null,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.logout),
-                tooltip: 'Cerrar Sesión',
-                onPressed: onLogout,
-              ),
+              IconButton(icon: const Icon(Icons.logout), tooltip: 'Cerrar Sesión', onPressed: onLogout),
             ],
           ),
           body: LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth < 800) {
-                // Diseño de una sola columna para pantallas pequeñas (móviles)
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildRestaurantHeader(name, imageUrl),
-                      const SizedBox(height: 32),
-                      _buildQuickActions(context),
-                      const SizedBox(height: 24),
-                      _buildSection(
-                        title: 'Reservaciones Activas',
-                        icon: Icons.event_seat,
-                        child: _buildReservationsList(),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildSection(
-                        title: 'Pedidos Recientes',
-                        icon: Icons.receipt_long,
-                        child: _buildOrdersList(firebaseService),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildSection(
-                        title: 'Estado de Mesas',
-                        icon: Icons.table_restaurant,
-                        child: _buildTablesList(),
-                      ),
-                    ],
-                  ),
-                );
-              } else {
-                // Diseño de tres columnas para pantallas grandes (tablets, desktops)
-                return Column(
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          _buildRestaurantHeader(name, imageUrl),
-                          const SizedBox(height: 32),
-                          _buildQuickActions(context),
-                        ],
-                      ),
+                    _buildRestaurantHeader(name, imageUrl),
+                    const SizedBox(height: 32),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Pedidos Recientes',
+                      icon: Icons.receipt_long,
+                      child: _buildOrdersList(firebaseService),
                     ),
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
-                              child: _buildSection(
-                                title: 'Reservaciones Activas',
-                                icon: Icons.event_seat,
-                                child: _buildReservationsList(),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
-                              child: _buildSection(
-                                title: 'Pedidos Recientes',
-                                icon: Icons.receipt_long,
-                                child: _buildOrdersList(firebaseService),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
-                              child: _buildSection(
-                                title: 'Estado de Mesas',
-                                icon: Icons.table_restaurant,
-                                child: _buildTablesList(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      title: 'Estado de Mesas',
+                      icon: Icons.table_restaurant,
+                      child: _buildTablesList(context),
                     ),
                   ],
-                );
-              }
+                ),
+              );
             },
           ),
         );
@@ -303,6 +146,100 @@ class RestaurantScreen extends StatelessWidget {
     );
   }
 
+  // --- LISTA DE MESAS ACTUALIZADA ---
+  Widget _buildTablesList(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('Restaurante')
+          .doc(restaurantId)
+          .collection('Mesas')
+          .snapshots(),
+      builder: (context, mesaSnapshot) {
+        if (mesaSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!mesaSnapshot.hasError || !mesaSnapshot.hasData || mesaSnapshot.data!.docs.isEmpty) {
+          return _buildEmptyState(icon: Icons.table_restaurant_outlined, message: 'No hay mesas registradas.');
+        }
+        
+        final mesas = mesaSnapshot.data!.docs;
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: mesas.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final mesa = mesas[index];
+            final mesaData = mesa.data() as Map<String, dynamic>;
+            final numero = mesaData['numero'] ?? '';
+            final isOccupied = mesaData['Estado'] ?? false;
+            final reservationData = mesaData['reservaInfo'] as Map<String, dynamic>?;
+            final bool isReserved = reservationData != null;
+
+            Color cardColor = Colors.white;
+            String statusText = 'Disponible';
+            Color statusColor = Colors.green[600]!;
+            IconData statusIcon = Icons.event_seat_outlined;
+
+            if (isOccupied) {
+              statusText = 'Ocupada';
+              statusColor = Colors.red[600]!;
+              statusIcon = Icons.person;
+            } else if (isReserved) {
+              statusText = 'Reservada';
+              statusColor = Colors.orange[600]!;
+              statusIcon = Icons.bookmark_added;
+              cardColor = Colors.orange[50]!;
+            }
+
+            return Card(
+              elevation: 2,
+              color: cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: InkWell(
+                onTap: isReserved ? () => _showReservationDetailsDialog(context, reservationData) : null,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 24),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Mesa $numero', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                            Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.w500, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                      if (isReserved && !isOccupied)
+                        ElevatedButton(
+                          onPressed: () {
+                            FirebaseService.updateTableStatus(restaurantId: restaurantId, tableId: mesa.id, isOccupied: true);
+                          },
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          child: const Text('Check-in'),
+                        )
+                      else if (isOccupied)
+                        TextButton(
+                          onPressed: () {
+                            FirebaseService.setTableAsAvailableAndClearReservation(restaurantId: restaurantId, tableId: mesa.id);
+                          },
+                          child: const Text('Liberar', style: TextStyle(color: Colors.red)),
+                        )
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+  // --- CABECERA DEL RESTAURANTE --- //
   Widget _buildRestaurantHeader(String name, String imageUrl) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -385,12 +322,11 @@ class RestaurantScreen extends StatelessWidget {
           subtitle: 'Editar platos y disponibilidad',
           color: Colors.orange,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    MenuManagementScreen(restaurantId: restaurantId),
-              ),
+            showDialog(
+              context: context,
+              // Usamos barrierDismissible: false para que no se cierre al tocar fuera
+              barrierDismissible: false, 
+              builder: (context) => MenuManagementDialog(restaurantId: restaurantId),
             );
           },
         ),
@@ -806,111 +742,6 @@ class RestaurantScreen extends StatelessWidget {
       debugPrint('Error fetching client name for $cedula: $e');
       return null;
     }
-  }
-
-  Widget _buildTablesList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('Restaurante')
-          .doc(restaurantId)
-          .collection('Mesas')
-          .snapshots(),
-      builder: (context, mesaSnapshot) {
-        if (mesaSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (mesaSnapshot.hasError) {
-          return _buildEmptyState(
-              icon: Icons.error_outline,
-              message: 'Error al cargar mesas: ${mesaSnapshot.error}');
-        }
-        if (!mesaSnapshot.hasData || mesaSnapshot.data!.docs.isEmpty) {
-          return _buildEmptyState(
-            icon: Icons.table_restaurant_outlined,
-            message: 'No hay mesas registradas.',
-          );
-        }
-        final mesas = mesaSnapshot.data!.docs;
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: mesas.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final mesa = mesas[index];
-            final mesaData = mesa.data() as Map<String, dynamic>;
-            final numero = mesaData['numero'] ?? '';
-            final estado = mesaData['Estado'] ?? false;
-
-            return Card(
-              elevation: 2,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: estado ? Colors.red[100] : Colors.green[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        estado
-                            ? Icons.event_seat
-                            : Icons.event_seat_outlined,
-                        color: estado ? Colors.red[600] : Colors.green[600],
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Mesa $numero',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            estado ? 'Ocupada' : 'Disponible',
-                            style: TextStyle(
-                              color: estado
-                                  ? Colors.red[600]
-                                  : Colors.green[600],
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: estado,
-                      onChanged: (value) {
-                        _showToggleTableStatusConfirmation(
-                          context,
-                          mesa.id,
-                          numero.toString(),
-                          estado,
-                        );
-                      },
-                      activeColor: Colors.red[600],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   Widget _buildSection({
