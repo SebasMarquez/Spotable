@@ -12,6 +12,7 @@ import '../models/reservation.dart';
 import '../models/table.dart';
 import '../models/dish.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:ui';
 
 class RestaurantDashboardScreen extends StatefulWidget {
   const RestaurantDashboardScreen({Key? key}) : super(key: key);
@@ -267,6 +268,27 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
       bottomNavigationBar: _buildBottomNavigationBar(),
       body: Stack(
         children: [
+          // Imagen de fondo con blur fuerte y overlay
+          Positioned.fill(
+            child: Stack(
+              children: [
+                Image.asset(
+                  'assets/images/fondo_spotable_mobile.png',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Capa 1: Contenido de fondo (siempre visible)
           _buildHomeContent(),
           

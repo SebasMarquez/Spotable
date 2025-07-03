@@ -8,6 +8,7 @@ import '../utils/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'welcome_screen.dart';
 import '../models/order.dart' as order_model;
+import 'dart:ui';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({Key? key}) : super(key: key);
@@ -132,6 +133,27 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
       bottomNavigationBar: _buildBottomNavigationBar(),
       body: Stack(
         children: [
+          // Imagen de fondo con blur fuerte y overlay
+          Positioned.fill(
+            child: Stack(
+              children: [
+                Image.asset(
+                  'assets/images/fondo_spotable_mobile.png',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _buildHomeContent(),
           if (_activeSheetIndex != null) _buildDraggableSheet(),
         ],
