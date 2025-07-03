@@ -1,13 +1,38 @@
-import 'menu_item.dart';
-
 class CartItem {
-  final MenuItem menuItem;
-  int quantity;
+  final String dishId;
+  final String restaurantId;
+  final int quantity;
+  final String dishName;
+  final double unitPrice;
+  final String dishImageUrl;
 
   CartItem({
-    required this.menuItem,
+    required this.dishId,
+    required this.restaurantId,
     required this.quantity,
+    required this.dishName,
+    required this.unitPrice,
+    required this.dishImageUrl,
   });
 
-  double get totalPrice => menuItem.price * quantity;
-}
+  factory CartItem.fromMap(Map<String, dynamic> data, String dishId) {
+    return CartItem(
+      dishId: dishId,
+      restaurantId: data['restaurantId'],
+      quantity: data['quantity'],
+      dishName: data['dishName'],
+      unitPrice: (data['unitPrice'] ?? 0).toDouble(),
+      dishImageUrl: data['dishImageUrl'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'restaurantId': restaurantId,
+      'quantity': quantity,
+      'dishName': dishName,
+      'unitPrice': unitPrice,
+      'dishImageUrl': dishImageUrl,
+    };
+  }
+} 

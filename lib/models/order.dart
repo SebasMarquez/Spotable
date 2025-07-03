@@ -1,139 +1,106 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class OrderItem {
-  final String menuItemId;
-  final String name;
-  final double price;
+  final String dishId;
+  final String dishName;
   final int quantity;
+  final double unitPrice;
 
   OrderItem({
-    required this.menuItemId,
-    required this.name,
-    required this.price,
+    required this.dishId,
+    required this.dishName,
     required this.quantity,
+    required this.unitPrice,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'menuItemId': menuItemId,
-      'name': name,
-      'price': price,
-      'quantity': quantity,
-    };
-  }
-
-  static OrderItem fromMap(Map<String, dynamic> map) {
+  factory OrderItem.fromMap(Map<String, dynamic> data) {
     return OrderItem(
-      menuItemId: map['menuItemId'] ?? '',
-      name: map['name'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      quantity: map['quantity'] ?? 1,
+      dishId: data['dishId'],
+      dishName: data['dishName'],
+      quantity: data['quantity'],
+      unitPrice: (data['unitPrice'] ?? 0).toDouble(),
     );
   }
 
-  double get subtotal => price * quantity;
+  Map<String, dynamic> toMap() {
+    return {
+      'dishId': dishId,
+      'dishName': dishName,
+      'quantity': quantity,
+      'unitPrice': unitPrice,
+    };
+  }
 }
 
 class Order {
-  final String id;
-  final String restauranteId;
-  final String restauranteName;
-  final String? idMesa; // Nuevo campo
+  final String orderId;
+  final String userId;
+  final String userName;
+  final String restaurantId;
+  final String restaurantName;
+  final String type; // delivery, pickup, dine-in
+  String status; // revision, en_cocina, listo, entregado
+  final String? tableId;
+  final String? tableName;
   final List<OrderItem> items;
-  final double total;
-  final String estado;
+  final double totalAmount;
+  final String? handledByEmployeeId;
+  final String? handledByEmployeeName;
   final DateTime createdAt;
-  final String cedulaCliente;
-  final String deliveryType; // Nuevo campo
-  final String? deliveryAddress; // Nuevo campo
 
   Order({
-    required this.id,
-    required this.restauranteId,
-    required this.restauranteName,
-    this.idMesa, // Actualizar constructor
+    required this.orderId,
+    required this.userId,
+    required this.userName,
+    required this.restaurantId,
+    required this.restaurantName,
+    required this.type,
+    required this.status,
+    this.tableId,
+    this.tableName,
     required this.items,
-    required this.total,
-    required this.estado,
+    required this.totalAmount,
+    this.handledByEmployeeId,
+    this.handledByEmployeeName,
     required this.createdAt,
-    required this.cedulaCliente,
-    required this.deliveryType,
-    this.deliveryAddress,
   });
 
-  // Crear Order desde Firestore
-  static Order fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
+  factory Order.fromMap(Map<String, dynamic> data, String id) {
     return Order(
-      id: doc.id,
-      restauranteId: data['restauranteId'] ?? '',
-      restauranteName: data['restauranteName'] ?? '',
-      idMesa: data['idMesa'] as String?, // Leer idMesa
-      items:
-          (data['items'] as List<dynamic>?)
-              ?.map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
-              .toList() ??
-          [],
-      total: (data['total'] ?? 0).toDouble(),
-      estado: data['estado'] ?? 'Generado',
-      createdAt:
-          data['createdAt'] != null && data['createdAt'] is Timestamp
-              ? (data['createdAt'] as Timestamp).toDate()
-              : DateTime.now(),
-      cedulaCliente: data['cedulaCliente'] ?? '', // Read cedulaCliente
-      deliveryType: data['deliveryType'] ?? 'dineIn', // Leer con valor por defecto
-      deliveryAddress: data['deliveryAddress'] as String?, // Leer dirección
+      orderId: id,
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? '',
+      restaurantId: data['restaurantId'] ?? '',
+      restaurantName: data['restaurantName'] ?? '',
+      type: data['type'] ?? '',
+      status: data['status'] ?? '',
+      tableId: data['tableId'],
+      tableName: data['tableName'],
+      items: (data['items'] as List<dynamic>? ?? []).map((item) => OrderItem.fromMap(item)).toList(),
+      totalAmount: (data['totalAmount'] ?? 0).toDouble(),
+      handledByEmployeeId: data['handledByEmployeeId'],
+      handledByEmployeeName: data['handledByEmployeeName'],
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['createdAt'] ?? '') ?? DateTime.now(),
     );
   }
 
-  // Convertir Order a Map para Firestore
   Map<String, dynamic> toMap() {
     return {
-      'restauranteId': restauranteId,
-      'restauranteName': restauranteName,
-      'idMesa': idMesa, // Escribir idMesa
-      'items': items.map((item) => item.toMap()).toList(),
-      'total': total,
-      'estado': estado,
+      'userId': userId,
+      'userName': userName,
+      'restaurantId': restaurantId,
+      'restaurantName': restaurantName,
+      'type': type,
+      'status': status,
+      'tableId': tableId,
+      'tableName': tableName,
+      'items': items.map((e) => e.toMap()).toList(),
+      'totalAmount': totalAmount,
+      'handledByEmployeeId': handledByEmployeeId,
+      'handledByEmployeeName': handledByEmployeeName,
       'createdAt': Timestamp.fromDate(createdAt),
-      'cedulaCliente': cedulaCliente, // Write cedulaCliente
-      'deliveryType': deliveryType,
-      'deliveryAddress': deliveryAddress,
     };
   }
-
-  // Método copyWith para actualizaciones
-  Order copyWith({
-    String? id,
-    String? restauranteId,
-    String? restauranteName,
-    String? idMesa, // Actualizar copyWith
-    List<OrderItem>? items,
-    double? total,
-    String? estado,
-    DateTime? createdAt,
-    String? cedulaCliente,
-    String? deliveryType,
-    String? deliveryAddress,
-  }) {
-    return Order(
-      id: id ?? this.id,
-      restauranteId: restauranteId ?? this.restauranteId,
-      restauranteName: restauranteName ?? this.restauranteName,
-      idMesa: idMesa ?? this.idMesa, // Actualizar copyWith
-      items: items ?? this.items,
-      total: total ?? this.total,
-      estado: estado ?? this.estado,
-      createdAt: createdAt ?? this.createdAt,
-      cedulaCliente: cedulaCliente ?? this.cedulaCliente,
-      deliveryType: deliveryType ?? this.deliveryType,
-      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'Order(id: $id, items: $items, total: $total)';
-  }
-}
+} 

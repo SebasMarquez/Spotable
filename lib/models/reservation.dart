@@ -1,29 +1,64 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Modelo para representar una reserva desde la perspectiva del usuario.
-///
-/// Contiene la información esencial de una reserva que se muestra en el perfil del usuario.
 class Reservation {
-  final String id;
-  final String restaurantName;
+  final String reservationId;
+  final String userId;
+  final String userName;
+  final String restaurantId;
   final String tableId;
-  final Timestamp reservationTime;
+  final DateTime reservationTime;
+  final int partySize;
+  String status; // pendiente, confirmada, completada, cancelada
+  final String? managedByEmployeeId;
+  final String? managedByEmployeeName;
+  final DateTime createdAt;
 
   Reservation({
-    required this.id,
-    required this.restaurantName,
+    required this.reservationId,
+    required this.userId,
+    required this.userName,
+    required this.restaurantId,
     required this.tableId,
     required this.reservationTime,
+    required this.partySize,
+    required this.status,
+    this.managedByEmployeeId,
+    this.managedByEmployeeName,
+    required this.createdAt,
   });
 
-  /// Crea una instancia de [Reservation] desde un [DocumentSnapshot] de Firestore.
-  factory Reservation.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Reservation.fromMap(Map<String, dynamic> data, String id) {
     return Reservation(
-      id: doc.id,
-      restaurantName: data['nombre_restaurante'] ?? 'Restaurante no encontrado',
-      tableId: data['id_mesa'] ?? 'N/A',
-      reservationTime: data['hora_reservacion'] ?? Timestamp.now(),
+      reservationId: id,
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? '',
+      restaurantId: data['restaurantId'] ?? '',
+      tableId: data['tableId'] ?? '',
+      reservationTime: (data['reservationTime'] is Timestamp)
+          ? (data['reservationTime'] as Timestamp).toDate()
+          : DateTime.tryParse(data['reservationTime'] ?? '') ?? DateTime.now(),
+      partySize: data['partySize'] ?? 1,
+      status: data['status'] ?? '',
+      managedByEmployeeId: data['managedByEmployeeId'],
+      managedByEmployeeName: data['managedByEmployeeName'],
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['createdAt'] ?? '') ?? DateTime.now(),
     );
   }
-}
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'userName': userName,
+      'restaurantId': restaurantId,
+      'tableId': tableId,
+      'reservationTime': Timestamp.fromDate(reservationTime),
+      'partySize': partySize,
+      'status': status,
+      'managedByEmployeeId': managedByEmployeeId,
+      'managedByEmployeeName': managedByEmployeeName,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+} 
