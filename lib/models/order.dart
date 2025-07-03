@@ -47,6 +47,8 @@ class Order {
   final String? handledByEmployeeId;
   final String? handledByEmployeeName;
   final DateTime createdAt;
+  String? detail;
+  final Map<String, dynamic>? shippingAddress;
 
   Order({
     required this.orderId,
@@ -63,6 +65,8 @@ class Order {
     this.handledByEmployeeId,
     this.handledByEmployeeName,
     required this.createdAt,
+    this.detail,
+    this.shippingAddress,
   });
 
   factory Order.fromMap(Map<String, dynamic> data, String id) {
@@ -83,6 +87,8 @@ class Order {
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.tryParse(data['createdAt'] ?? '') ?? DateTime.now(),
+      detail: data['detail'],
+      shippingAddress: data['shippingAddress'],
     );
   }
 
@@ -101,6 +107,8 @@ class Order {
       'handledByEmployeeId': handledByEmployeeId,
       'handledByEmployeeName': handledByEmployeeName,
       'createdAt': Timestamp.fromDate(createdAt),
+      'detail': detail,
+      'shippingAddress': shippingAddress,
     };
   }
 } 

@@ -8,6 +8,8 @@ import '../utils/app_colors.dart';
 import 'restaurant_dashboard_screen.dart';
 import 'client_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/rendering.dart';
+import 'dart:ui';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -156,11 +158,32 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background image
+          // Background image with blur and overlay
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/fondo_spotable_mobile.png',
-              fit: BoxFit.cover,
+            child: Stack(
+              children: [
+                SizedBox.expand(
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width,
+                      height: MediaQuery.of(context).size.height,
+                      child: Image.asset(
+                        'assets/images/fondo_spotable_mobile.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.25),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           // Content
@@ -194,14 +217,36 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               },
                             ),
                             const SizedBox(height: 24),
-                            Text(
-                              'Tu plataforma de restaurantes favorita',
-                              style: TextStyle(
-                                color: Color(0xFF333333),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
+                            // Título con fondo semitransparente y sombra
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.10),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
+                              child: Text(
+                                'Tu plataforma de restaurantes favorita',
+                                style: TextStyle(
+                                  color: Color(0xFF333333),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.18),
+                                      offset: Offset(1, 2),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ],
                         ),
@@ -230,6 +275,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             color: Colors.red.shade700,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            shadows: [
+                              Shadow(
+                                color: Colors.white.withOpacity(0.7),
+                                offset: Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -256,7 +308,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: Colors.white,
-                            elevation: 0,
+                            elevation: 2,
+                            shadowColor: Colors.black.withOpacity(0.10),
                           ),
                         ),
                       ),
@@ -283,6 +336,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                             elevation: 4,
+                            shadowColor: Colors.black.withOpacity(0.10),
                             textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -290,19 +344,33 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       const SizedBox(height: 40),
                       // Features (opcional, puedes dejarlo igual)
                       if (!isMobile) ...[
-                        Text(
-                          'Características principales',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                offset: const Offset(1, 1),
-                                blurRadius: 3,
-                                color: Colors.black.withOpacity(0.7),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.10),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
                               ),
                             ],
+                          ),
+                          child: Text(
+                            'Características principales',
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.18),
+                                  offset: Offset(1, 2),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -509,6 +577,7 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
               decoration: const InputDecoration(
                 labelText: 'Nombre completo',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -523,6 +592,7 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
               decoration: const InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
@@ -541,6 +611,7 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
               decoration: const InputDecoration(
                 labelText: 'Teléfono (opcional)',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               keyboardType: TextInputType.phone,
             ),
@@ -550,6 +621,7 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
               decoration: const InputDecoration(
                 labelText: 'Rol',
                 border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               items: const [
                 DropdownMenuItem(value: 'client', child: Text('Cliente')),
@@ -703,14 +775,37 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
           ],
           DropdownButtonFormField<String>(
             value: widget.selectedRole,
-            items: [
-              DropdownMenuItem(value: 'client', child: Text('Cliente')),
-              DropdownMenuItem(value: 'restaurant', child: Text('Restaurante')),
+            icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF388e3c)),
+            decoration: InputDecoration(
+              labelText: 'Tipo de usuario',
+              prefixIcon: Icon(Icons.person_outline, color: Color(0xFF424242)),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+              labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
+            ),
+            dropdownColor: Colors.white,
+            style: TextStyle(color: Color(0xFF333333), fontSize: 16, fontWeight: FontWeight.w500),
+            isExpanded: true,
+            items: const [
+              DropdownMenuItem(value: 'client', child: Text('Cliente', style: TextStyle(fontSize: 16))),
+              DropdownMenuItem(value: 'restaurant', child: Text('Restaurante', style: TextStyle(fontSize: 16))),
             ],
             onChanged: (value) {
               if (value != null) widget.onRoleChanged(value);
             },
-            decoration: InputDecoration(labelText: 'Tipo de usuario', border: OutlineInputBorder()),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Selecciona el tipo de usuario';
@@ -739,6 +834,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
               ),
               prefixIcon: Icon(Icons.email, color: Color(0xFF424242)),
               contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+              labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
             ),
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
@@ -773,6 +869,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
               ),
               prefixIcon: Icon(Icons.lock, color: Color(0xFF424242)),
               contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+              labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -803,6 +900,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
                 ),
                 prefixIcon: Icon(Icons.person, color: Color(0xFF424242)),
                 contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -832,6 +930,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
                 ),
                 prefixIcon: Icon(Icons.phone, color: Color(0xFF424242)),
                 contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               keyboardType: TextInputType.phone,
               validator: (value) {
@@ -866,6 +965,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
                 ),
                 prefixIcon: Icon(Icons.badge, color: Color(0xFF424242)),
                 contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
               ),
               keyboardType: TextInputType.number,
               validator: (value) {
@@ -1070,6 +1170,7 @@ class _RestaurantLoginDialogState extends State<_RestaurantLoginDialog> {
                           prefixIcon: Icon(Icons.restaurant),
                           border: OutlineInputBorder(),
                           helperText: 'El ID aparece al crear el restaurante o en la administración',
+                          labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -1086,6 +1187,7 @@ class _RestaurantLoginDialogState extends State<_RestaurantLoginDialog> {
                           labelText: 'Contraseña',
                           prefixIcon: Icon(Icons.lock),
                           border: OutlineInputBorder(),
+                          labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {

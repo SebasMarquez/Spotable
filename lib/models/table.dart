@@ -5,8 +5,10 @@ class RestaurantTable {
   final String joinCode; // Código de 6 dígitos para unirse a la mesa
   final int capacity; // Número de personas que caben
   final String status; // 'disponible', 'ocupada', 'reservada'
-  final String? currentUserName;
-  final String? currentUserId;
+  final List<String>? currentUserName;
+  final List<String>? currentUserId;
+  final String? assignedEmployeeId;
+  final String? assignedEmployeeName;
 
   RestaurantTable({
     required this.id,
@@ -17,9 +19,17 @@ class RestaurantTable {
     required this.status,
     this.currentUserName,
     this.currentUserId,
+    this.assignedEmployeeId,
+    this.assignedEmployeeName,
   });
 
   factory RestaurantTable.fromMap(Map<String, dynamic> data, String id) {
+    List<String>? parseList(dynamic val) {
+      if (val == null) return null;
+      if (val is List) return val.map((e) => e.toString()).toList();
+      if (val is String && val.isNotEmpty) return [val];
+      return null;
+    }
     return RestaurantTable(
       id: id,
       restaurantId: data['restaurantId'] ?? '',
@@ -27,8 +37,10 @@ class RestaurantTable {
       joinCode: data['joinCode'] ?? '',
       capacity: data['capacity'] ?? 4,
       status: data['status'] ?? 'disponible',
-      currentUserName: data['currentUserName'],
-      currentUserId: data['currentUserId'],
+      currentUserName: parseList(data['currentUserName']),
+      currentUserId: parseList(data['currentUserId']),
+      assignedEmployeeId: data['assignedEmployeeId'],
+      assignedEmployeeName: data['assignedEmployeeName'],
     );
   }
 
@@ -41,6 +53,8 @@ class RestaurantTable {
       'status': status,
       'currentUserName': currentUserName,
       'currentUserId': currentUserId,
+      'assignedEmployeeId': assignedEmployeeId,
+      'assignedEmployeeName': assignedEmployeeName,
     };
   }
 
@@ -51,10 +65,10 @@ class RestaurantTable {
   }
 
   // Método para verificar si la mesa está disponible
-  bool get isAvailable => status == 'disponible';
+  bool get isAvailable => (currentUserId == null || currentUserId!.isEmpty) && status == 'disponible';
   
   // Método para verificar si la mesa está ocupada
-  bool get isOccupied => status == 'ocupada';
+  bool get isOccupied => (currentUserId != null && currentUserId!.isNotEmpty) || status == 'ocupada';
   
   // Método para verificar si la mesa está reservada
   bool get isReserved => status == 'reservada';
