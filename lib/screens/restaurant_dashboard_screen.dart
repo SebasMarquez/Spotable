@@ -1960,6 +1960,7 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
   final _phoneController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _personalIdController = TextEditingController();
   String _selectedRole = 'waiter';
   bool _isLoading = false;
 
@@ -1979,9 +1980,10 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
       _phoneController.text = widget.employee!.phone ?? '';
       _usernameController.text = widget.employee!.email.split('@')[0];
       _selectedRole = widget.employee!.employeeRole ?? 'waiter';
+      _personalIdController.text = widget.employee!.personalId ?? '';
     } else {
-      // Generar contraseña temporal por defecto
-      _passwordController.text = '123456';
+      // No inicializar la contraseña por defecto
+      _passwordController.text = '';
     }
   }
 
@@ -1991,6 +1993,7 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
     _phoneController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _personalIdController.dispose();
     super.dispose();
   }
 
@@ -2020,44 +2023,67 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nombre completo',
+                  labelText: 'Nombre',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Por favor ingresa el nombre';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
                   labelText: 'Teléfono',
                   border: OutlineInputBorder(),
-                  hintText: '0412-1234567',
                 ),
                 keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _personalIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Cédula de identidad',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa el teléfono';
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Por favor ingresa la cédula de identidad';
                   }
-                  // Validación de teléfono venezolano
-                  final phoneRegex = RegExp(r'^0[24]\d{9}$');
-                  if (!phoneRegex.hasMatch(value.replaceAll(RegExp(r'[^\d]'), ''))) {
-                    return 'Ingresa un teléfono válido (04xx-xxxxxxx o 02xx-xxxxxxx)';
+                  final cedula = value.trim();
+                  if (cedula.length < 6) {
+                    return 'La cédula debe tener al menos 6 dígitos';
+                  }
+                  if (!RegExp(r'^[0-9]+$').hasMatch(cedula)) {
+                    return 'La cédula debe contener solo números';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Usuario (email sin @)',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Por favor ingresa el usuario';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Contraseña',
                   border: OutlineInputBorder(),
-                  hintText: 'Contraseña para el empleado',
                 ),
                 obscureText: true,
                 validator: (value) {
@@ -2070,59 +2096,7 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de usuario',
-                  border: OutlineInputBorder(),
-                  hintText: 'usuario',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa el nombre de usuario';
-                  }
-                  if (value.length < 3) {
-                    return 'El nombre de usuario debe tener al menos 3 caracteres';
-                  }
-                  return null;
-                },
-                onChanged: (value) {
-                  setState(() {}); // Para actualizar el email en tiempo real
-                },
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Correo laboral:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      workEmail,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 decoration: const InputDecoration(
@@ -2181,13 +2155,14 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
 
     try {
       final workEmail = '${_usernameController.text}@${widget.restaurantName.toLowerCase().replaceAll(' ', '')}.com';
-      
+      final personalId = _personalIdController.text.trim();
       if (widget.employee != null) {
         // Actualizar empleado existente
         final employeeData = {
           'name': _nameController.text.trim(),
           'email': workEmail,
           'phone': _phoneController.text.trim(),
+          'personalId': personalId,
           'restaurantId': widget.restaurantId,
           'isEmployee': true,
           'employeeRole': _selectedRole,
@@ -2201,18 +2176,17 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
       } else {
         // Crear nuevo empleado
         final password = _passwordController.text;
-        
         // Crear usuario en Firebase Auth
         final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: workEmail,
           password: password,
         );
-
         // Guardar datos adicionales en Firestore
         final employeeData = {
           'name': _nameController.text.trim(),
           'email': workEmail,
           'phone': _phoneController.text.trim(),
+          'personalId': personalId,
           'password': password, // Guardar contraseña en texto plano para desarrollo
           'restaurantId': widget.restaurantId,
           'isEmployee': true,
@@ -2220,12 +2194,10 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
           'createdAt': DateTime.now(),
           'updatedAt': DateTime.now(),
         };
-
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
             .set(employeeData);
-
         // Mostrar información de credenciales al usuario
         if (mounted) {
           showDialog(
@@ -2274,20 +2246,9 @@ class _InviteEmployeeDialogState extends State<_InviteEmployeeDialog> {
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = 'Error: $e';
-        
-        // Manejar errores específicos de Firebase Auth
-        if (e.toString().contains('email-already-in-use')) {
-          errorMessage = 'Error: El correo electrónico ya está registrado';
-        } else if (e.toString().contains('weak-password')) {
-          errorMessage = 'Error: La contraseña es muy débil';
-        } else if (e.toString().contains('invalid-email')) {
-          errorMessage = 'Error: El correo electrónico no es válido';
-        }
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
+            content: Text('Error: $e'),
             backgroundColor: Colors.red[600],
           ),
         );

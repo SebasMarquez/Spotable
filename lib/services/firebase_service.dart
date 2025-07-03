@@ -75,7 +75,7 @@ class FirebaseService {
     String password,
     String name,
     String role,
-    {String? phone, String? customId}
+    {String? phone, String? personalId}
   ) async {
     if (!['client', 'restaurant'].contains(role)) {
       throw Exception('Solo puedes registrarte como Cliente o Restaurante. Los empleados solo pueden ser invitados.');
@@ -92,12 +92,13 @@ class FirebaseService {
 
       // Create user document
       final user = app_user.User(
-        id: customId ?? credential.user!.uid,
+        id: credential.user!.uid, // Usar el ID autogenerado por Firebase Auth
         email: email,
         name: name,
         role: role,
         phone: phone,
         password: password, // Guardar contraseña en texto plano para desarrollo
+        personalId: personalId, // Guardar cédula de identidad
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         isActive: true,
@@ -106,9 +107,10 @@ class FirebaseService {
         addresses: [],
         paymentMethods: [],
         permissions: [],
+        isEmployee: false, // Los usuarios registrados por email no son empleados inicialmente
       );
 
-      final userId = customId ?? credential.user!.uid;
+      final userId = credential.user!.uid;
       print('Guardando documento en Firestore con ID: $userId');
       print('Datos del usuario: ${user.toMap()}');
 
@@ -147,10 +149,26 @@ class FirebaseService {
           
       if (userDoc.exists) {
         final userData = userDoc.data()!;
-        if (userData['role'] != role) {
+        print('Usuario existente encontrado: ${userData['email']}');
+        
+        // Verificar si es empleado usando el campo isEmployee
+        final isEmployee = userData['isEmployee'] == true;
+        print('Es empleado: $isEmployee, Rol seleccionado: $role');
+        
+        // Lógica de verificación:
+        // - Si el usuario es empleado (isEmployee: true), debe seleccionar 'restaurant'
+        // - Si el usuario no es empleado (isEmployee: false o null), debe seleccionar 'client'
+        if (isEmployee && role != 'restaurant') {
+          print('Usuario es empleado pero seleccionó rol: $role');
           await _auth.signOut();
-          throw Exception('Rol incorrecto. Selecciona ${userData['role']}');
+          throw Exception('Este usuario es un empleado. Selecciona "Restaurante" para acceder.');
+        } else if (!isEmployee && role != 'client') {
+          print('Usuario no es empleado pero seleccionó rol: $role');
+          await _auth.signOut();
+          throw Exception('Este usuario es un cliente. Selecciona "Cliente" para acceder.');
         }
+        
+        print('Login exitoso con rol correcto');
       } else {
         // Create new user document
         final user = app_user.User(
@@ -159,6 +177,8 @@ class FirebaseService {
           name: userCredential.user!.displayName ?? 'Usuario',
           role: role,
           phone: userCredential.user!.phoneNumber,
+          password: null, // Google users don't have password
+          personalId: null, // Google users don't have personalId initially
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
           isActive: true,
@@ -167,6 +187,7 @@ class FirebaseService {
           addresses: [],
           paymentMethods: [],
           permissions: [],
+          isEmployee: false, // Los usuarios de Google no son empleados inicialmente
         );
 
         await _firestore
@@ -322,6 +343,7 @@ class FirebaseService {
       role: 'restaurant', // All employees are restaurant role
       phone: null,
       password: password, // Guardar contraseña en texto plano para desarrollo
+      personalId: null, // Los empleados no necesitan cédula
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isActive: true,
@@ -334,6 +356,7 @@ class FirebaseService {
       permissions: permissions,
       invitedBy: currentUser!.uid,
       hiredDate: DateTime.now(),
+      isEmployee: true, // Los empleados invitados sí son empleados
     );
 
     // Create user document (employee will complete registration later)

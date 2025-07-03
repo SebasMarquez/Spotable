@@ -7,6 +7,7 @@ class User {
   final String role; // 'client', 'restaurant', 'employee'
   final String? phone;
   final String? password; // Contraseña en texto plano para desarrollo
+  final String? personalId; // Cédula de identidad
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isActive;
@@ -24,6 +25,7 @@ class User {
   final String? invitedBy;        // Who invited this employee
   final DateTime? hiredDate;      // When employee was hired
   final String? worksAtRestaurantId; // Restaurant where employee works
+  final bool isEmployee; // Campo explícito para identificar empleados
 
   User({
     required this.id,
@@ -32,6 +34,7 @@ class User {
     required this.role,
     this.phone,
     this.password,
+    this.personalId,
     required this.createdAt,
     required this.updatedAt,
     required this.isActive,
@@ -45,6 +48,7 @@ class User {
     this.invitedBy,
     this.hiredDate,
     this.worksAtRestaurantId,
+    required this.isEmployee,
   });
 
   factory User.fromMap(Map<String, dynamic> data, [String? id]) {
@@ -55,6 +59,7 @@ class User {
       role: data['role'] ?? 'client',
       phone: data['phone'],
       password: data['password'],
+      personalId: data['personalId'],
       createdAt: data['createdAt'] != null 
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
@@ -74,6 +79,7 @@ class User {
           ? (data['hiredDate'] as Timestamp).toDate()
           : null,
       worksAtRestaurantId: data['worksAtRestaurantId'],
+      isEmployee: data['isEmployee'] ?? false,
     );
   }
 
@@ -84,6 +90,7 @@ class User {
       'role': role,
       'phone': phone,
       'password': password,
+      'personalId': personalId,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'isActive': isActive,
@@ -97,6 +104,7 @@ class User {
       'invitedBy': invitedBy,
       'hiredDate': hiredDate != null ? Timestamp.fromDate(hiredDate!) : null,
       'worksAtRestaurantId': worksAtRestaurantId,
+      'isEmployee': isEmployee,
     };
   }
 
@@ -107,6 +115,7 @@ class User {
     String? role,
     String? phone,
     String? password,
+    String? personalId,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
@@ -120,6 +129,7 @@ class User {
     String? invitedBy,
     DateTime? hiredDate,
     String? worksAtRestaurantId,
+    bool? isEmployee,
   }) {
     return User(
       id: id ?? this.id,
@@ -128,6 +138,7 @@ class User {
       role: role ?? this.role,
       phone: phone ?? this.phone,
       password: password ?? this.password,
+      personalId: personalId ?? this.personalId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
@@ -141,14 +152,14 @@ class User {
       invitedBy: invitedBy ?? this.invitedBy,
       hiredDate: hiredDate ?? this.hiredDate,
       worksAtRestaurantId: worksAtRestaurantId ?? this.worksAtRestaurantId,
+      isEmployee: isEmployee ?? this.isEmployee,
     );
   }
 
   // Métodos de utilidad para verificar roles
   bool get isClient => role == 'client';
   bool get isRestaurantOwner => role == 'restaurant';
-  // El campo isEmployee se maneja directamente desde Firestore
-  bool get isEmployee => false; // Se maneja directamente desde Firestore
+  // El campo isEmployee ahora es una propiedad del modelo
   bool get isManager => isEmployee && employeeRole == 'manager';
   bool get isWaiter => isEmployee && employeeRole == 'waiter';
   bool get isCook => isEmployee && employeeRole == 'cook';

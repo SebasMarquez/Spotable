@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/auth_dialog.dart';
@@ -198,16 +197,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             Text(
                               'Tu plataforma de restaurantes favorita',
                               style: TextStyle(
-                                fontSize: isMobile ? 18.0 : 28.0,
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(
-                                    offset: const Offset(1, 2),
-                                    blurRadius: 6,
-                                    color: Colors.black.withOpacity(0.25),
-                                  ),
-                                ],
+                                color: Color(0xFF333333),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -219,6 +211,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       _LoginGeneralForm(
                         onSuccess: _handleAuthenticatedUser,
                         isLogin: _isLogin,
+                        selectedRole: _selectedRole,
+                        onRoleChanged: (role) => setState(() => _selectedRole = role),
                       ),
                       const SizedBox(height: 12),
                       // Botón para alternar entre login y registro de usuario
@@ -246,22 +240,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         height: buttonHeight,
                         child: OutlinedButton.icon(
                           onPressed: _showRestaurantLoginDialog,
-                          icon: const Icon(Icons.restaurant, color: Colors.green),
+                          icon: Icon(Icons.restaurant, color: Color(0xFF388e3c)),
                           label: Text(
                             'Login Restaurant',
                             style: TextStyle(
+                              color: Color(0xFF388e3c),
                               fontSize: buttonTextSize,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green.shade700,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            foregroundColor: Colors.green.shade700,
-                            side: BorderSide(color: Colors.green.shade600, width: 2),
+                            side: BorderSide(color: Color(0xFF388e3c), width: 2),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Colors.white,
+                            elevation: 0,
                           ),
                         ),
                       ),
@@ -272,7 +267,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         height: buttonHeight,
                         child: ElevatedButton.icon(
                           onPressed: _showCreateRestaurantDialog,
-                          icon: const Icon(Icons.add_business),
+                          icon: Icon(Icons.store, color: Colors.white),
                           label: Text(
                             'Crear un restaurante',
                             style: TextStyle(
@@ -281,11 +276,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.shade700,
+                            backgroundColor: Color(0xFFFF9800),
                             foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
+                            elevation: 4,
+                            textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -593,7 +591,14 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
 class _LoginGeneralForm extends StatefulWidget {
   final VoidCallback onSuccess;
   final bool isLogin;
-  const _LoginGeneralForm({required this.onSuccess, required this.isLogin});
+  final String selectedRole;
+  final ValueChanged<String> onRoleChanged;
+  const _LoginGeneralForm({
+    required this.onSuccess,
+    required this.isLogin,
+    required this.selectedRole,
+    required this.onRoleChanged,
+  });
 
   @override
   State<_LoginGeneralForm> createState() => _LoginGeneralFormState();
@@ -628,34 +633,11 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
     });
     try {
       if (widget.isLogin) {
-        // LOGIN
-        final credential = await _firebaseService.currentUser == null
-            ? await FirebaseAuth.instance.signInWithEmailAndPassword(
-                email: _emailController.text.trim(),
-                password: _passwordController.text,
-              )
-            : null;
-        // Obtener datos del usuario
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(credential?.user?.uid ?? _firebaseService.currentUser?.uid)
-            .get();
-        if (!userDoc.exists) {
-          setState(() {
-            _errorMessage = 'Usuario no encontrado.';
-          });
-          return;
-        }
-        final userData = userDoc.data()!;
-        final role = userData['role'];
-        if (role == 'restaurant') {
-          setState(() {
-            _errorMessage = 'Por favor usa el botón "Login Restaurant" para iniciar sesión como restaurante.';
-          });
-          await FirebaseAuth.instance.signOut();
-          return;
-        }
-        // Si es cliente o empleado, continuar
+        await _firebaseService.signInWithEmailAndPassword(
+          _emailController.text.trim(),
+          _passwordController.text,
+          widget.selectedRole,
+        );
         widget.onSuccess();
       } else {
         // REGISTRO
@@ -672,16 +654,12 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
           _emailController.text.trim(),
           _passwordController.text,
           name,
-          'client',
+          widget.selectedRole,
           phone: phone,
-          customId: userId,
+          personalId: userId,
         );
         widget.onSuccess();
       }
-    } on FirebaseAuthException catch (e) {
-      setState(() {
-        _errorMessage = e.message;
-      });
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -702,24 +680,65 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
         children: [
           if (_errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
+                color: Color(0xFFFFF0F0),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Color(0xFFFFCDD2)),
               ),
-              child: Text(
-                _errorMessage!,
-                style: TextStyle(color: Colors.red.shade700),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: Color(0xFFE57373), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(color: Color(0xFFE57373)),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
           ],
+          DropdownButtonFormField<String>(
+            value: widget.selectedRole,
+            items: [
+              DropdownMenuItem(value: 'client', child: Text('Cliente')),
+              DropdownMenuItem(value: 'restaurant', child: Text('Restaurante')),
+            ],
+            onChanged: (value) {
+              if (value != null) widget.onRoleChanged(value);
+            },
+            decoration: InputDecoration(labelText: 'Tipo de usuario', border: OutlineInputBorder()),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Selecciona el tipo de usuario';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _emailController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
               labelText: 'Email',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.email),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+              ),
+              prefixIcon: Icon(Icons.email, color: Color(0xFF424242)),
+              contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
             ),
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
@@ -736,10 +755,24 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
           TextFormField(
             controller: _passwordController,
             obscureText: true,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
               labelText: 'Contraseña',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.lock),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+              ),
+              prefixIcon: Icon(Icons.lock, color: Color(0xFF424242)),
+              contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -752,10 +785,24 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
                 labelText: 'Nombre y apellido',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+                ),
+                prefixIcon: Icon(Icons.person, color: Color(0xFF424242)),
+                contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -767,10 +814,24 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
                 labelText: 'Teléfono',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+                ),
+                prefixIcon: Icon(Icons.phone, color: Color(0xFF424242)),
+                contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
               ),
               keyboardType: TextInputType.phone,
               validator: (value) {
@@ -787,19 +848,36 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _idController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
                 labelText: 'Cédula de identidad',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.badge),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFFCFD8DC)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
+                ),
+                prefixIcon: Icon(Icons.badge, color: Color(0xFF424242)),
+                contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
               ),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Por favor ingresa tu cédula';
                 }
-                final cedula = int.tryParse(value.trim());
-                if (cedula == null || cedula < 1 || cedula > 100000000) {
-                  return 'La cédula debe ser un número entre 1 y 100000000';
+                final cedula = value.trim();
+                if (cedula.length < 6) {
+                  return 'La cédula debe tener al menos 6 dígitos';
+                }
+                if (!RegExp(r'^[0-9]+$').hasMatch(cedula)) {
+                  return 'La cédula debe contener solo números';
                 }
                 return null;
               },
@@ -812,17 +890,23 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
             child: ElevatedButton(
               onPressed: _isLoading ? null : _handleLoginOrRegister,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade600,
+                backgroundColor: Color(0xFF388e3c),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                elevation: 4,
+                textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               child: _isLoading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
                     )
                   : Text(widget.isLogin ? 'Iniciar Sesión' : 'Registrarse'),
             ),
@@ -977,8 +1061,8 @@ class _RestaurantLoginDialogState extends State<_RestaurantLoginDialog> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
                       ],
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _idOrNameController,
                         decoration: const InputDecoration(

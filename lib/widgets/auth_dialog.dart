@@ -25,6 +25,7 @@ class _AuthDialogState extends State<AuthDialog> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _personalIdController = TextEditingController();
   final _firebaseService = FirebaseService();
   
   bool _isLoading = false;
@@ -37,6 +38,7 @@ class _AuthDialogState extends State<AuthDialog> {
     _passwordController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
+    _personalIdController.dispose();
     super.dispose();
   }
 
@@ -71,6 +73,9 @@ class _AuthDialogState extends State<AuthDialog> {
           phone: _phoneController.text.trim().isEmpty 
               ? null 
               : _phoneController.text.trim(),
+          personalId: _personalIdController.text.trim().isEmpty 
+              ? null 
+              : _personalIdController.text.trim(),
         );
       }
       
@@ -354,6 +359,29 @@ class _AuthDialogState extends State<AuthDialog> {
                             prefixIcon: Icon(Icons.phone),
                             border: OutlineInputBorder(),
                           ),
+                        ),
+                      ],
+                      
+                      // Personal ID field (only for registration, only for clients)
+                      if (!widget.isLogin && widget.selectedRole == 'client') ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _personalIdController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Cédula de Identidad',
+                            prefixIcon: Icon(Icons.badge),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Por favor ingresa tu cédula de identidad';
+                            }
+                            if (value.length < 6) {
+                              return 'La cédula debe tener al menos 6 dígitos';
+                            }
+                            return null;
+                          },
                         ),
                       ],
                       
