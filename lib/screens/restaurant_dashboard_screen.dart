@@ -13,6 +13,7 @@ import '../models/table.dart';
 import '../models/dish.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
+import '../models/bill.dart';
 
 class RestaurantDashboardScreen extends StatefulWidget {
   const RestaurantDashboardScreen({Key? key}) : super(key: key);
@@ -37,6 +38,7 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
   List<RestaurantTable> _tables = [];
   List<Dish> _dishes = [];
   List<app_user.User> _employees = [];
+  List<Bill> _bills = [];
 
   // Estados para filtros y UI
   Set<String> _selectedCategories = {};
@@ -47,9 +49,17 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
   
   bool _isCategoriesInitialized = false;
 
+  String _reservationFilter = 'recent';
+  String _billFilterStatus = 'todas';
+  String _billFilterType = 'todas';
+
+  int? _expandedBillIndex;
+  int? _expandedTableIndex;
+
   @override
   void initState() {
     super.initState();
+    print('[DEBUG] RestaurantDashboardScreen cargado');
     _loadUserAndRestaurantData();
   }
 
@@ -60,14 +70,18 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
   }
 
   Future<void> _loadUserAndRestaurantData() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
       final userData = await _firebaseService.getCurrentUserData();
       String? restaurantId;
 
       if (userData != null) {
-        setState(() => _currentUser = userData);
-        restaurantId = userData.restaurantId;
+        if (mounted) setState(() => _currentUser = userData);
+        if (userData.isEmployee) {
+          restaurantId = userData.restaurantId;
+        } else {
+          restaurantId = userData.restaurantId;
+        }
       }
 
       if (restaurantId == null || restaurantId.isEmpty) {
@@ -78,9 +92,8 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
       if (restaurantId != null && restaurantId.isNotEmpty) {
         final restaurantData =
             await _firebaseService.getRestaurant(restaurantId);
-        if (restaurantData != null) {
-          setState(
-              () => _restaurant = Restaurant.fromMap(restaurantData, restaurantId));
+        if (restaurantData != null && mounted) {
+          setState(() => _restaurant = Restaurant.fromMap(restaurantData, restaurantId));
         }
         await _loadAllRestaurantData(restaurantId);
       }
@@ -108,6 +121,7 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
       _loadTables(restaurantId),
       _loadDishes(restaurantId),
       _loadEmployees(restaurantId),
+      _loadBills(),
     ]);
   }
 
@@ -199,6 +213,16 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     }
   }
 
+  Future<void> _loadBills() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('bills')
+        .where('restaurantId', isEqualTo: _restaurant?.id ?? '')
+        .get();
+    if (mounted) setState(() {
+      _bills = snapshot.docs.map((doc) => Bill.fromMap(doc.data(), doc.id)).toList();
+    });
+  }
+
   void _handleLogout() async {
     try {
       await _firebaseService.signOut();
@@ -261,7 +285,7 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
       );
     }
 
-    // CORREGIDO: La estructura del layout principal
+    final ScrollController scrollController = ScrollController();
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(),
@@ -291,7 +315,6 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
           ),
           // Capa 1: Contenido de fondo (siempre visible)
           _buildHomeContent(),
-          
           // Capa 2: Hoja desplegable (se muestra encima del contenido de fondo)
           if (_activeSheetIndex != null) _buildDraggableSheet(),
         ],
@@ -457,55 +480,70 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
+    final items = [
+      const BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Órdenes'),
+      const BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Reservas'),
+      const BottomNavigationBarItem(icon: Icon(Icons.table_restaurant), label: 'Mesas'),
+      const BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: 'Facturación'),
+      const BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Menú'),
+      const BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Personal'),
+    ];
     return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: _selectedIndex,
+      currentIndex: _activeSheetIndex ?? 0,
+      onTap: (index) {
+        setState(() {
+          _activeSheetIndex = index;
+        });
+      },
       selectedItemColor: AppColors.primary,
       unselectedItemColor: Colors.grey[600],
-      onTap: _onItemTapped,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Inicio'),
-        BottomNavigationBarItem(icon: Icon(Icons.receipt), label: 'Pedidos'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.table_restaurant), label: 'Mesas'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_menu), label: 'Menú'),
-        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Empleados'),
-        BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Reportes'),
-      ],
+      type: BottomNavigationBarType.fixed,
+      items: items,
     );
   }
 
   Widget _buildDraggableSheet() {
     final key = ValueKey<int?>(_activeSheetIndex);
-
-    return DraggableScrollableSheet(
-      key: key,
-      initialChildSize: 0.6,
-      minChildSize: 0.2,
-      maxChildSize: 0.95,
-      builder: (BuildContext context, ScrollController scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 10.0,
-                color: Colors.black.withOpacity(0.2),
-              ),
-            ],
-          ),
-          child: Column(
+    final sheetController = DraggableScrollableController();
+    return DraggableScrollableActuator(
+      child: DraggableScrollableSheet(
+        key: key,
+        controller: sheetController,
+        initialChildSize: 0.6,
+        minChildSize: 0.2,
+        maxChildSize: 0.95,
+        builder: (BuildContext context, ScrollController scrollController) {
+          Widget header = Column(
             children: [
-              Container(
-                width: 40,
-                height: 5,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 16, // área de agarre más grande
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(child: Icon(Icons.drag_handle, size: 20, color: Colors.grey)),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_up),
+                    tooltip: 'Expandir',
+                    onPressed: () {
+                      sheetController.animateTo(0.95, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    tooltip: 'Contraer',
+                    onPressed: () {
+                      sheetController.animateTo(0.2, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    },
+                  ),
+                ],
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
@@ -515,12 +553,36 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
                     Text(_getSheetTitle(),
                         style: const TextStyle(
                             fontSize: 22, fontWeight: FontWeight.bold)),
+                    if (_activeSheetIndex == 3) // Facturación
+                      Row(
+                        children: [
+                          DropdownButton<String>(
+                            value: _billFilterStatus,
+                            items: const [
+                              DropdownMenuItem(value: 'todas', child: Text('Todas')),
+                              DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
+                              DropdownMenuItem(value: 'pagada', child: Text('Pagada')),
+                            ],
+                            onChanged: (v) => setState(() => _billFilterStatus = v ?? 'todas'),
+                          ),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            value: _billFilterType,
+                            items: const [
+                              DropdownMenuItem(value: 'todas', child: Text('Todos los tipos')),
+                              DropdownMenuItem(value: 'delivery', child: Text('Delivery')),
+                              DropdownMenuItem(value: 'pickup', child: Text('Pick Up')),
+                              DropdownMenuItem(value: 'dine-in', child: Text('Comer aquí')),
+                            ],
+                            onChanged: (v) => setState(() => _billFilterType = v ?? 'todas'),
+                          ),
+                        ],
+                      ),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () {
                         setState(() {
                           _activeSheetIndex = null;
-                          _selectedIndex = 0;
                         });
                       },
                     ),
@@ -528,31 +590,60 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
                 ),
               ),
               const Divider(height: 1),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: _getSheetContent(scrollController),
-                ),
-              ),
             ],
-          ),
-        );
-      },
+          );
+          // Solo para la hoja de Órdenes, haz el header draggable
+          if (_activeSheetIndex == 0) {
+            header = GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: (details) {
+                DraggableScrollableActuator.reset(context);
+              },
+              child: header,
+            );
+          }
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 10.0,
+                  color: Colors.black.withOpacity(0.2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                header,
+                Expanded(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _getSheetContent(scrollController),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   String _getSheetTitle() {
     switch (_activeSheetIndex) {
+      case 0:
+        return 'Órdenes';
       case 1:
-        return 'Pedidos';
+        return 'Reservas';
       case 2:
         return 'Mesas';
       case 3:
-        return 'Menú';
+        return 'Facturación';
       case 4:
-        return 'Empleados';
+        return 'Menú';
       case 5:
-        return 'Reportes';
+        return 'Personal';
       default:
         return '';
     }
@@ -560,16 +651,18 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
 
   Widget _getSheetContent(ScrollController scrollController) {
     switch (_activeSheetIndex) {
-      case 1:
+      case 0:
         return _buildOrdersContent(scrollController);
+      case 1:
+        return _buildReservationsContent(scrollController);
       case 2:
         return _buildTablesContent(scrollController);
       case 3:
-        return _buildMenuContent(scrollController);
+        return _buildBillsContent();
       case 4:
-        return _buildEmployeesContent(scrollController);
+        return _buildMenuContent(scrollController);
       case 5:
-        return _buildReportsContent(scrollController);
+        return _buildEmployeesContent(scrollController);
       default:
         return const SizedBox.shrink();
     }
@@ -612,10 +705,7 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        ...ordersToShow.map((order) {
-          final index = ordersToShow.indexOf(order);
-          return _buildOrderCard(order, index);
-        }).toList(),
+        ...ordersToShow.map((order) => _buildOrderCard(order, ordersToShow.indexOf(order))),
       ],
     );
   }
@@ -628,86 +718,140 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
       controller: scrollController,
       padding: const EdgeInsets.all(16),
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.add),
-            label: const Text('Agregar Mesa'),
-            onPressed: _showAddTableDialog,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ..._tables.map((table) {
-          IconData icon;
-          Color color;
-          String statusText;
-          if (table.isAvailable) {
-            icon = Icons.event_seat;
-            color = Colors.green;
-            statusText = 'Disponible';
-          } else if (table.isOccupied) {
-            icon = Icons.people;
-            color = Colors.orange;
-            statusText = 'Ocupada';
-          } else if (table.isReserved) {
-            icon = Icons.event_busy;
-            color = Colors.blue;
-            statusText = 'Reservada';
-          } else {
-            icon = Icons.help;
-            color = Colors.grey;
-            statusText = table.status;
-          }
+        ..._tables.asMap().entries.map((entry) {
+          final i = entry.key;
+          final table = entry.value;
+          final isExpanded = _expandedTableIndex == i;
+          // Órdenes dine-in pendientes de esta mesa y que no estén ya facturadas
+          final billedOrderIds = _bills.expand((b) => b.orderIds).toSet();
+          final tableOrders = _orders.where((o) => o.type == 'dine-in' && o.tableId == table.id && !billedOrderIds.contains(o.orderId)).toList();
           return Card(
-            color: color.withOpacity(0.12),
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: Icon(icon, color: color),
-              title: Text('Mesa: ${table.tableName}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                      shadows: const [
-                        Shadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 0),
-                            blurRadius: 2)
-                      ])),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Capacidad: ${table.capacity}',
-                      style: const TextStyle(shadows: [
-                        Shadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 0),
-                            blurRadius: 2)
-                      ])),
-                  if (table.currentUserName != null && table.currentUserName!.isNotEmpty)
-                    Text(
-                      'Ocupada por: ${table.currentUserName!.join(', ')}',
-                      style: const TextStyle(shadows: [
-                        Shadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 0),
-                            blurRadius: 2)
-                      ])),
-                ],
-              ),
-              trailing: Text(statusText,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      shadows: const [
-                        Shadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 0),
-                            blurRadius: 2)
-                      ])),
-              onTap: () => _editTable(table),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.table_restaurant, color: Colors.blue),
+                  title: Text('Mesa: ${table.tableName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Capacidad: ${table.capacity}'),
+                      Text('Código: ${table.joinCode}'),
+                      if (table.currentUserName != null && table.currentUserName!.isNotEmpty)
+                        Text('Ocupada por: ${table.currentUserName!.join(', ')}'),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                        tooltip: isExpanded ? 'Ocultar detalle' : 'Ver detalle',
+                        onPressed: () => setState(() => _expandedTableIndex = isExpanded ? null : i),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.cleaning_services),
+                        tooltip: 'Limpiar Mesa',
+                        onPressed: () async {
+                          await _freeTable(table);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Eliminar Mesa',
+                        onPressed: () async {
+                          await _deleteTable(table);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                if (isExpanded)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Órdenes pendientes:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ...tableOrders.map((order) => Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            title: Text('Orden #${order.orderId} - Cliente: ${order.userName}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Fecha: ${order.createdAt.toString().substring(0, 16)}'),
+                                Text('Subtotal: ${order.totalAmount.toStringAsFixed(2)}'),
+                                const Text('Platos:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ...order.items.map((item) => Padding(
+                                  padding: const EdgeInsets.only(left: 12.0, bottom: 2),
+                                  child: Text('${item.dishName} x${item.quantity} - ${item.unitPrice.toStringAsFixed(2)}${item.comment?.isNotEmpty == true ? ' | Nota: ${item.comment}' : ''}'),
+                                )),
+                              ],
+                            ),
+                            trailing: ElevatedButton.icon(
+                              icon: const Icon(Icons.attach_money),
+                              label: const Text('Facturar'),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                              onPressed: () async {
+                                // Facturar solo esta orden
+                                await FirebaseFirestore.instance.collection('bills').add({
+                                  'orderIds': [order.orderId],
+                                  'restaurantId': order.restaurantId,
+                                  'tableId': order.tableId,
+                                  'clientId': order.userId,
+                                  'amount': order.totalAmount,
+                                  'status': 'pagada',
+                                  'createdAt': DateTime.now(),
+                                  'paidAt': DateTime.now(),
+                                  'type': order.type,
+                                  'details': null,
+                                });
+                                await _loadBills();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura generada'), backgroundColor: Colors.green));
+                                }
+                              },
+                            ),
+                          ),
+                        )),
+                        if (tableOrders.length > 1)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.attach_money),
+                              label: const Text('Facturar mesa completa'),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                              onPressed: () async {
+                                final orderIds = tableOrders.map((o) => o.orderId).toList();
+                                final total = tableOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+                                await FirebaseFirestore.instance.collection('bills').add({
+                                  'orderIds': orderIds,
+                                  'restaurantId': table.restaurantId,
+                                  'tableId': table.id,
+                                  'clientId': null,
+                                  'amount': total,
+                                  'status': 'pagada',
+                                  'createdAt': DateTime.now(),
+                                  'paidAt': DateTime.now(),
+                                  'type': 'dine-in',
+                                  'details': null,
+                                });
+                                await _loadBills();
+                                await _freeTable(table);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura de mesa generada'), backgroundColor: Colors.green));
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1232,7 +1376,50 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     );
   }
 
-  Widget _buildReservationCard(Reservation reservation) {
+  Widget _buildReservationsContent(ScrollController scrollController) {
+    if (_reservations.isEmpty) {
+      return const Center(child: Text('No hay reservaciones registradas.'));
+    }
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            ToggleButtons(
+              isSelected: [_reservationFilter == 'recent', _reservationFilter == 'status'],
+              onPressed: (index) {
+                setState(() {
+                  _reservationFilter = index == 0 ? 'recent' : 'status';
+                });
+              },
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('Más reciente'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('Por estado'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._filteredReservations.asMap().entries.map((entry) {
+          final index = entry.key;
+          final reservation = entry.value;
+          return _buildReservationCardRestaurante(reservation, index);
+        }).toList(),
+      ],
+    );
+  }
+
+  int? _expandedReservationIndex;
+  Widget _buildReservationCardRestaurante(Reservation reservation, int index) {
+    final isExpanded = _expandedReservationIndex == index;
     Color cardColor;
     Color iconColor;
     IconData iconData;
@@ -1240,6 +1427,8 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     IconData? actionIcon;
     Color? actionColor;
     VoidCallback? onAction;
+    String? nextStatus;
+    String? nextStatusLabel;
 
     switch (reservation.status) {
       case 'pendiente':
@@ -1249,7 +1438,9 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
         actionIcon = Icons.check;
         actionColor = Colors.blue;
         tooltip = 'Confirmar reservación';
-        onAction = () => _advanceReservationStatus(reservation);
+        nextStatus = 'confirmada';
+        nextStatusLabel = 'Confirmar';
+        onAction = () => _advanceReservationStatusRestaurante(reservation, nextStatus!);
         break;
       case 'confirmada':
         cardColor = Colors.blue.withOpacity(0.12);
@@ -1258,7 +1449,9 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
         actionIcon = Icons.check_circle;
         actionColor = Colors.green;
         tooltip = 'Marcar como completada';
-        onAction = () => _advanceReservationStatus(reservation);
+        nextStatus = 'completada';
+        nextStatusLabel = 'Completar';
+        onAction = () => _advanceReservationStatusRestaurante(reservation, nextStatus!);
         break;
       case 'completada':
         cardColor = Colors.green.withOpacity(0.1);
@@ -1279,48 +1472,105 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     return Card(
       color: cardColor,
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        leading: Icon(iconData, color: iconColor, size: 28),
-        title: Text('Reserva #${reservation.reservationId}',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: iconColor,
-                shadows: const [
-                  Shadow(
-                      color: Colors.black26, offset: Offset(0, 0), blurRadius: 2)
-                ])),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Cliente: ${reservation.userName}',
-                style: const TextStyle(shadows: [
-                  Shadow(
-                      color: Colors.black26, offset: Offset(0, 0), blurRadius: 2)
-                ])),
-            Text('Mesa: ${reservation.tableId}',
-                style: const TextStyle(shadows: [
-                  Shadow(
-                      color: Colors.black26, offset: Offset(0, 0), blurRadius: 2)
-                ])),
-            Text(
-                'Fecha: ${reservation.reservationTime.toLocal().toString().substring(0, 16)}',
-                style: const TextStyle(shadows: [
-                  Shadow(
-                      color: Colors.black26, offset: Offset(0, 0), blurRadius: 2)
-                ])),
-          ],
-        ),
-        trailing: actionIcon != null
-            ? IconButton(
-                icon: Icon(actionIcon, color: actionColor, size: 28),
-                onPressed: onAction,
-                tooltip: tooltip,
-              )
-            : null,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            leading: Icon(iconData, color: iconColor, size: 28),
+            title: Text('Reserva #${reservation.reservationId}',
+                style: TextStyle(fontWeight: FontWeight.bold, color: iconColor)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cliente: ${reservation.userName}'),
+                Text('Mesa: ${reservation.tableId}'),
+                Text('Fecha: ${reservation.reservationTime.toLocal().toString().substring(0, 16)}'),
+                Text('Estado: ${reservation.status}'),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (actionIcon != null && onAction != null)
+                  IconButton(
+                    icon: Icon(actionIcon, color: actionColor, size: 28),
+                    onPressed: onAction,
+                    tooltip: tooltip,
+                  ),
+                IconButton(
+                  icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: iconColor),
+                  onPressed: () {
+                    setState(() {
+                      _expandedReservationIndex = isExpanded ? null : index;
+                    });
+                  },
+                  tooltip: isExpanded ? 'Ocultar detalle' : 'Ver detalle',
+                ),
+              ],
+            ),
+          ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(),
+                  Text('Comentarios: ${reservation.comments ?? "Sin comentarios"}'),
+                  Text('Personas: ${reservation.partySize}'),
+                  // Puedes agregar más detalles aquí si lo deseas
+                ],
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Future<void> _advanceReservationStatusRestaurante(Reservation reservation, String nextStatus) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Cambiar estado de reservación'),
+        content: Text('¿Deseas cambiar la reservación #${reservation.reservationId} a "$nextStatus"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('reservations')
+            .doc(reservation.reservationId)
+            .update({'status': nextStatus});
+        _loadReservations(_restaurant!.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Reservación #${reservation.reservationId} marcada como $nextStatus'),
+              backgroundColor: Colors.green[600],
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al actualizar la reservación: $e'),
+              backgroundColor: Colors.red[600],
+            ),
+          );
+        }
+      }
+    }
   }
 
   String _getRoleDisplayName(String role) {
@@ -1405,68 +1655,6 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     }
   }
 
-  void _advanceReservationStatus(Reservation reservation) async {
-    String? nextStatus;
-    String dialogTitle = '';
-    String dialogContent = '';
-    if (reservation.status == 'pendiente') {
-      nextStatus = 'confirmada';
-      dialogTitle = 'Confirmar reservación';
-      dialogContent =
-          '¿Deseas confirmar la reservación #${reservation.reservationId}?';
-    } else if (reservation.status == 'confirmada') {
-      nextStatus = 'completada';
-      dialogTitle = 'Completar reservación';
-      dialogContent =
-          '¿Deseas marcar la reservación #${reservation.reservationId} como completada?';
-    }
-    if (nextStatus == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(dialogTitle),
-        content: Text(dialogContent),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('reservations')
-            .doc(reservation.reservationId)
-            .update({'status': nextStatus});
-        _loadReservations(_restaurant!.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Reservación #${reservation.reservationId} marcada como $nextStatus'),
-              backgroundColor: Colors.green[600],
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al actualizar la reservación: $e'),
-              backgroundColor: Colors.red[600],
-            ),
-          );
-        }
-      }
-    }
-  }
-
   void _showAddDishDialog() {
     showDialog(
       context: context,
@@ -1488,7 +1676,7 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
     );
   }
 
-  void _showAddTableDialog() {
+  void _showCreateTableDialog() {
     showDialog(
       context: context,
       builder: (context) => _AddTableDialog(
@@ -1530,6 +1718,213 @@ class _RestaurantDashboardScreenState extends State<RestaurantDashboardScreen> {
         onEmployeeAdded: () => _loadEmployees(_restaurant!.id),
       ),
     );
+  }
+
+  Future<void> _freeTable(RestaurantTable table) async {
+    try {
+      await _firebaseService.freeTable(table.id);
+      await _loadTables(_restaurant!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mesa ${table.tableName} liberada'),
+            backgroundColor: Colors.green[600],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al limpiar mesa: $e'),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTable(RestaurantTable table) async {
+    try {
+      await _firebaseService.deleteTable(table.id);
+      await _loadTables(_restaurant!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mesa ${table.tableName} eliminada'),
+            backgroundColor: Colors.green[600],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar mesa: $e'),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    }
+  }
+
+  List<Reservation> get _filteredReservations {
+    if (_reservationFilter == 'recent') {
+      return List.from(_reservations)..sort((a, b) => b.reservationTime.compareTo(a.reservationTime));
+    } else {
+      final statusOrder = ['pendiente', 'confirmada', 'completada', 'cancelada'];
+      final reservationsCopy = List<Reservation>.from(_reservations);
+      reservationsCopy.sort((a, b) {
+        final statusCmp = statusOrder.indexOf(a.status).compareTo(statusOrder.indexOf(b.status));
+        if (statusCmp != 0) return statusCmp;
+        return a.reservationTime.compareTo(b.reservationTime);
+      });
+      return reservationsCopy;
+    }
+  }
+
+  Widget _buildBillsContent() {
+    final filteredBills = _bills.where((bill) {
+      final statusOk = _billFilterStatus == 'todas' || bill.status == _billFilterStatus;
+      final typeOk = _billFilterType == 'todas' || bill.type == _billFilterType;
+      return statusOk && typeOk;
+    }).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            DropdownButton<String>(
+              value: _billFilterStatus,
+              items: const [
+                DropdownMenuItem(value: 'todas', child: Text('Todas')),
+                DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
+                DropdownMenuItem(value: 'pagada', child: Text('Pagada')),
+              ],
+              onChanged: (v) => setState(() => _billFilterStatus = v ?? 'todas'),
+            ),
+            const SizedBox(width: 16),
+            DropdownButton<String>(
+              value: _billFilterType,
+              items: const [
+                DropdownMenuItem(value: 'todas', child: Text('Todos los tipos')),
+                DropdownMenuItem(value: 'delivery', child: Text('Delivery')),
+                DropdownMenuItem(value: 'pickup', child: Text('Pick Up')),
+                DropdownMenuItem(value: 'dine-in', child: Text('Comer aquí')),
+              ],
+              onChanged: (v) => setState(() => _billFilterType = v ?? 'todas'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: filteredBills.isEmpty
+              ? const Center(child: Text('No hay facturas registradas.'))
+              : ListView.builder(
+                  itemCount: filteredBills.length,
+                  itemBuilder: (context, index) {
+                    final bill = filteredBills[index];
+                    final isExpanded = _expandedBillIndex == index;
+                    return Card(
+                      color: bill.status == 'pagada' ? Colors.green[50] : Colors.orange[50],
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text('Factura #${bill.billId}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Monto: ${bill.amount.toStringAsFixed(2)}'),
+                                Text('Estado: ${bill.status}'),
+                                Text('Tipo: ${bill.type}'),
+                                if (bill.tableId != null) Text('Mesa: ${bill.tableId}'),
+                                if (bill.orderIds.isNotEmpty) Text('Órdenes: ${bill.orderIds.join(", ") }'),
+                                Text('Fecha: ${bill.createdAt.toString().substring(0, 16)}'),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                bill.status == 'pendiente'
+                                    ? IconButton(
+                                        icon: const Icon(Icons.attach_money, color: Colors.green),
+                                        tooltip: 'Marcar como pagada',
+                                        onPressed: () async {
+                                          await FirebaseFirestore.instance.collection('bills').doc(bill.billId).update({
+                                            'status': 'pagada',
+                                            'paidAt': Timestamp.now(),
+                                          });
+                                          await _loadBills();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura marcada como pagada'), backgroundColor: Colors.green));
+                                          }
+                                        },
+                                      )
+                                    : const Icon(Icons.check_circle, color: Colors.green),
+                                IconButton(
+                                  icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                                  tooltip: isExpanded ? 'Ocultar detalle' : 'Ver detalle',
+                                  onPressed: () => setState(() => _expandedBillIndex = isExpanded ? null : index),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isExpanded)
+                            FutureBuilder<List<order_model.Order>>(
+                              future: _fetchOrdersForBill(bill.orderIds),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final orders = snapshot.data!;
+                                final total = orders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      ...orders.map((order) => Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Orden #${order.orderId} - Cliente: ${order.userName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          Text('Fecha: ${order.createdAt.toString().substring(0, 16)}'),
+                                          Text('Tipo: ${order.type}'),
+                                          Text('Subtotal: ${order.totalAmount.toStringAsFixed(2)}'),
+                                          const Text('Platos:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          ...order.items.map((item) => Padding(
+                                            padding: const EdgeInsets.only(left: 12.0, bottom: 2),
+                                            child: Text('${item.dishName} x${item.quantity} - ${item.unitPrice.toStringAsFixed(2)}${item.comment?.isNotEmpty == true ? ' | Nota: ${item.comment}' : ''}'),
+                                          )),
+                                          const Divider(),
+                                        ],
+                                      )),
+                                      Text('Monto total de la factura: ${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Future<List<order_model.Order>> _fetchOrdersForBill(List<String> orderIds) async {
+    if (orderIds.isEmpty) return [];
+    final snap = await FirebaseFirestore.instance
+        .collection('orders')
+        .where(FieldPath.documentId, whereIn: orderIds)
+        .get();
+    return snap.docs.map((doc) => order_model.Order.fromMap(doc.data(), doc.id)).toList();
   }
 }
 

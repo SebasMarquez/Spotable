@@ -49,15 +49,32 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
   String? selectedAddressId;
   bool isLoadingAddresses = false;
 
+  int? _expandedReservationIndex;
+  final Map<String, TextEditingController> _editDateController = {};
+  final Map<String, TextEditingController> _editPeopleController = {};
+  final Map<String, TextEditingController> _editCommentsController = {};
+  final Map<String, bool> _editLoading = {};
+
+  // Carrito: Permitir editar comentario de cada plato
+  int? _editingCartItemIndex;
+  final Map<String, TextEditingController> _cartCommentControllers = {};
+
+  // Órdenes: Permitir editar comentario de cada plato en orden pendiente
+  int? _editingOrderIndex;
+  final Map<String, TextEditingController> _orderCommentControllers = {};
+
   @override
   void initState() {
     super.initState();
+    print('[DEBUG] ClientDashboardScreen cargado');
     _loadData();
   }
 
   @override
   void dispose() {
     _dishCommentControllers.forEach((_, controller) => controller.dispose());
+    _cartCommentControllers.forEach((_, controller) => controller.dispose());
+    _orderCommentControllers.forEach((_, controller) => controller.dispose());
     super.dispose();
   }
 
@@ -549,27 +566,44 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
           case 'cancelada': cardColor = Colors.red; iconData = Icons.cancel; break;
           default: cardColor = Colors.grey; iconData = Icons.help;
         }
+        final isExpanded = _expandedReservationIndex == index;
         return Card(
           color: cardColor.withOpacity(0.15),
           margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            leading: Icon(iconData, color: cardColor),
-            title: Text(res['restaurantName'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: cardColor)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Fecha: ${res['reservationTime'] != null ? (res['reservationTime'] as Timestamp).toDate().toString().substring(0, 16) : ''}'),
-                Text('Personas: ${res['partySize'] ?? res['people'] ?? ''}'),
-                Text('Estado: $status', style: const TextStyle(fontWeight: FontWeight.w500)),
-              ],
-            ),
-            trailing: status == 'pendiente' || status == 'confirmada'
-                ? IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.red),
-                    onPressed: () => _showCancelReservationDialog(res),
-                    tooltip: 'Cancelar reservación',
-                  )
-                : null,
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(iconData, color: cardColor),
+                title: Text(res['restaurantName'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: cardColor)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Fecha: ${res['reservationTime'] != null ? (res['reservationTime'] as Timestamp).toDate().toString().substring(0, 16) : ''}'),
+                    Text('Personas: ${res['partySize'] ?? res['people'] ?? ''}'),
+                    Text('Estado: $status', style: const TextStyle(fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (status == 'pendiente' || status == 'confirmada')
+                      IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        onPressed: () => _showCancelReservationDialog(res),
+                        tooltip: 'Cancelar reservación',
+                      ),
+                    IconButton(
+                      icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: cardColor),
+                      onPressed: () => setState(() { _expandedReservationIndex = isExpanded ? null : index; }),
+                    ),
+                  ],
+                ),
+              ),
+              if (isExpanded)
+                status == 'pendiente'
+                  ? _buildEditableReservationForm(res, index)
+                  : _buildReservationDetails(res),
+            ],
           ),
         );
       },
@@ -591,24 +625,76 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text('Restaurante: ${_restaurants.firstWhere((r) => r.id == _cartRestaurantId).name}', style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
-            ..._cartItems.map((item) {
+            ..._cartItems.asMap().entries.map((entry) {
+              final i = entry.key;
+              final item = entry.value;
+              _cartCommentControllers[item.dishId] ??= TextEditingController(text: item.comment ?? '');
+              final isEditing = _editingCartItemIndex == i;
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
-                child: ListTile(
-                  leading: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                      ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item.imageUrl!, width: 44, height: 44, fit: BoxFit.cover))
-                      : Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.fastfood, color: AppColors.primary)),
-                  title: Text(item.dishName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('\$${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _changeCartQuantity(item.dishId, -1)),
-                      Text('${item.quantity}'),
-                      IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _changeCartQuantity(item.dishId, 1)),
-                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _removeFromCart(item.dishId)),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                          ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item.imageUrl!, width: 44, height: 44, fit: BoxFit.cover))
+                          : Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.fastfood, color: AppColors.primary)),
+                      title: Text(item.dishName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('\$24${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}'),
+                          if (!isEditing)
+                            Row(
+                              children: [
+                                Expanded(child: Text(item.comment?.isNotEmpty == true ? 'Nota: ${item.comment}' : 'Sin nota', style: TextStyle(color: Colors.grey[700]))),
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  tooltip: 'Editar nota',
+                                  onPressed: () => setState(() => _editingCartItemIndex = i),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _cartCommentControllers[item.dishId],
+                                    decoration: const InputDecoration(labelText: 'Editar nota', border: OutlineInputBorder()),
+                                    minLines: 1,
+                                    maxLines: 2,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.check, color: Colors.green),
+                                  tooltip: 'Guardar',
+                                  onPressed: () {
+                                    setState(() {
+                                      _cartItems[i] = _cartItems[i].copyWith(comment: _cartCommentControllers[item.dishId]!.text);
+                                      _editingCartItemIndex = null;
+                                    });
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.red),
+                                  tooltip: 'Cancelar',
+                                  onPressed: () => setState(() => _editingCartItemIndex = null),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _changeCartQuantity(item.dishId, -1)),
+                          Text('${item.quantity}'),
+                          IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _changeCartQuantity(item.dishId, 1)),
+                          IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _removeFromCart(item.dishId)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             }),
@@ -617,7 +703,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary)),
-                Text('\$${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('\$24${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
           ],
@@ -652,6 +738,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
         final order = _myOrders[index];
         final isExpanded = _expandedOrderIndex == index;
         final cardColor = _getOrderStatusColor(order.status);
+        final isEditable = order.status == 'revision';
         return Card(
           color: cardColor.withOpacity(0.15),
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -664,7 +751,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Fecha: ${order.createdAt.toString().substring(0, 16)}'),
-                    Text('Total: \$${order.totalAmount.toStringAsFixed(2)}'),
+                    Text('Total: \$24${order.totalAmount.toStringAsFixed(2)}'),
                     Text('Estado: ${order.status}', style: TextStyle(fontWeight: FontWeight.w500, color: cardColor)),
                   ],
                 ),
@@ -737,13 +824,64 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                       const SizedBox(height: 16),
                       const Text('Platos:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(height: 6),
-                      ...order.items.map((item) => Row(
+                      ...order.items.asMap().entries.map((entry) {
+                        final itemIdx = entry.key;
+                        final item = entry.value;
+                        final controllerKey = '${order.orderId}_${item.dishId}';
+                        _orderCommentControllers[controllerKey] ??= TextEditingController(text: item.comment ?? '');
+                        if (isEditable) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: Text('${item.dishName} x${item.quantity}', style: const TextStyle(fontSize: 15))),
+                              Expanded(
+                                child: TextField(
+                                  controller: _orderCommentControllers[controllerKey],
+                                  decoration: const InputDecoration(labelText: 'Nota', border: OutlineInputBorder()),
+                                  minLines: 1,
+                                  maxLines: 2,
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          return Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(child: Text('${item.dishName} x${item.quantity}', style: const TextStyle(fontSize: 15))),
-                              Text('\$${(item.unitPrice * item.quantity).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                              Text(item.comment?.isNotEmpty == true ? 'Nota: ${item.comment}' : '', style: const TextStyle(color: Colors.grey)),
                             ],
-                          )),
+                          );
+                        }
+                      }),
+                      if (isEditable)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.save),
+                            label: const Text('Guardar cambios'),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                            onPressed: () async {
+                              final updatedItems = order.items.asMap().map((idx, item) {
+                                final controllerKey = '${order.orderId}_${item.dishId}';
+                                return MapEntry(idx, item.copyWith(comment: _orderCommentControllers[controllerKey]?.text ?? item.comment));
+                              });
+                              await FirebaseFirestore.instance.collection('orders').doc(order.orderId).update({
+                                'items': updatedItems.values.map((e) => {
+                                  'dishId': e.dishId,
+                                  'dishName': e.dishName,
+                                  'quantity': e.quantity,
+                                  'unitPrice': e.unitPrice,
+                                  'comment': e.comment,
+                                }).toList(),
+                              });
+                              await _loadData();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comentarios actualizados'), backgroundColor: Colors.green));
+                              }
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1104,8 +1242,22 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                               shippingAddressMap = selected.toMap();
                               shippingAddressMap['id'] = selected.id;
                             }
+                            // NUEVO: Buscar el userId correcto por email
+                            String userId = '';
+                            final userQuery = await FirebaseFirestore.instance
+                                .collection('users')
+                                .where('email', isEqualTo: _currentUser!.email)
+                                .limit(1)
+                                .get();
+                            if (userQuery.docs.isNotEmpty) {
+                              userId = userQuery.docs.first.id;
+                            } else {
+                              // fallback: usar el id actual (puede estar vacío)
+                              userId = _currentUser!.id;
+                            }
                             final orderData = {
-                              'userId': _currentUser!.id, 'userName': _currentUser!.name,
+                              'userId': userId, // <-- Ahora seguro que es el correcto
+                              'userName': _currentUser!.name,
                               'restaurantId': restaurant.id, 'restaurantName': restaurant.name,
                               'type': selectedType,
                               'status': 'revision',
@@ -1121,7 +1273,22 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                               'handledByEmployeeName': handledByEmployeeName,
                               'createdAt': DateTime.now(),
                             };
-                            await FirebaseFirestore.instance.collection('orders').add(orderData);
+                            final orderRef = await FirebaseFirestore.instance.collection('orders').add(orderData);
+                            // Crear factura (bill) automáticamente
+                            final billStatus = (selectedType == 'delivery') ? 'pagada' : 'pendiente';
+                            final billData = {
+                              'orderIds': [orderRef.id],
+                              'restaurantId': restaurant.id,
+                              'tableId': tableId,
+                              'clientId': userId,
+                              'amount': _cartTotal,
+                              'status': billStatus,
+                              'createdAt': DateTime.now(),
+                              'paidAt': billStatus == 'pagada' ? DateTime.now() : null,
+                              'type': selectedType,
+                              'details': null,
+                            };
+                            await FirebaseFirestore.instance.collection('bills').add(billData);
                             setState(() {
                               _cartItems.clear();
                               _cartRestaurantId = null;
@@ -1218,6 +1385,104 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
       if (t['joinCode'] == code) return t;
     }
     return null;
+  }
+
+  Widget _buildEditableReservationForm(Map<String, dynamic> res, int index) {
+    final id = res['id'];
+    _editDateController[id] ??= TextEditingController(text: res['reservationTime'] != null ? (res['reservationTime'] as Timestamp).toDate().toString().substring(0, 16) : '');
+    _editPeopleController[id] ??= TextEditingController(text: (res['partySize'] ?? res['people'] ?? '').toString());
+    _editCommentsController[id] ??= TextEditingController(text: res['comments'] ?? '');
+    _editLoading[id] ??= false;
+    DateTime? selectedDateTime;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          TextFormField(
+            controller: _editDateController[id],
+            readOnly: true,
+            decoration: const InputDecoration(labelText: 'Fecha y hora', border: OutlineInputBorder(), prefixIcon: Icon(Icons.calendar_today)),
+            onTap: () async {
+              final now = DateTime.now();
+              final pickedDate = await showDatePicker(context: context, initialDate: now, firstDate: now, lastDate: now.add(const Duration(days: 60)));
+              if (pickedDate != null) {
+                final pickedTime = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(now));
+                if (pickedTime != null) {
+                  selectedDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, pickedTime.hour, pickedTime.minute);
+                  _editDateController[id]!.text = selectedDateTime.toString().substring(0, 16);
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _editPeopleController[id],
+            decoration: const InputDecoration(labelText: 'Personas', border: OutlineInputBorder(), prefixIcon: Icon(Icons.people)),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _editCommentsController[id],
+            decoration: const InputDecoration(labelText: 'Comentarios', border: OutlineInputBorder(), prefixIcon: Icon(Icons.comment)),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _editLoading[id] == true ? null : () async {
+                _editLoading[id] = true;
+                setState(() {});
+                try {
+                  DateTime? newDate;
+                  if (_editDateController[id]!.text.isNotEmpty) {
+                    newDate = DateTime.tryParse(_editDateController[id]!.text);
+                  }
+                  final newPeople = int.tryParse(_editPeopleController[id]!.text) ?? 2;
+                  final newComments = _editCommentsController[id]!.text;
+                  await FirebaseFirestore.instance.collection('reservations').doc(id).update({
+                    if (newDate != null) 'reservationTime': newDate,
+                    'partySize': newPeople,
+                    'comments': newComments,
+                  });
+                  await _loadData();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reservación actualizada'), backgroundColor: Colors.green));
+                  }
+                  setState(() { _expandedReservationIndex = null; });
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  }
+                } finally {
+                  _editLoading[id] = false;
+                  setState(() {});
+                }
+              },
+              icon: _editLoading[id] == true ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save),
+              label: const Text('Guardar cambios'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservationDetails(Map<String, dynamic> res) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          Text('Comentarios: ${res['comments'] ?? "Sin comentarios"}'),
+          Text('Personas: ${res['partySize'] ?? res['people'] ?? ''}'),
+        ],
+      ),
+    );
   }
 }
 

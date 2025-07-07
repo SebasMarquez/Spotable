@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/table.dart';
 import '../services/firebase_service.dart';
 import '../utils/app_colors.dart';
+import '../models/user.dart' as app_user;
 
 class TableManagementDialog extends StatefulWidget {
   final String restaurantId;
@@ -20,11 +21,15 @@ class _TableManagementDialogState extends State<TableManagementDialog> {
   List<RestaurantTable> _tables = [];
   bool _isLoading = true;
   String _selectedStatusFilter = 'todos';
+  List<app_user.User> _employees = [];
+  String? _selectedEmployeeId;
+  String? _selectedEmployeeName;
 
   @override
   void initState() {
     super.initState();
     _loadTables();
+    _loadEmployees();
   }
 
   Future<void> _loadTables() async {
@@ -48,6 +53,12 @@ class _TableManagementDialogState extends State<TableManagementDialog> {
         );
       }
     }
+  }
+
+  Future<void> _loadEmployees() async {
+    final service = FirebaseService();
+    final employees = await service.getRestaurantEmployees(widget.restaurantId);
+    if (mounted) setState(() => _employees = employees);
   }
 
   List<RestaurantTable> get _filteredTables {
@@ -120,16 +131,6 @@ class _TableManagementDialogState extends State<TableManagementDialog> {
                           },
                         ),
                         const Spacer(),
-                        // Add Table Button
-                        ElevatedButton.icon(
-                          onPressed: _showCreateTableDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Nueva Mesa'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -225,6 +226,57 @@ class _TableManagementDialogState extends State<TableManagementDialog> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Botón limpiar mesa con confirmación
+                IconButton(
+                  icon: const Icon(Icons.cleaning_services),
+                  tooltip: 'Limpiar Mesa',
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmar limpieza'),
+                        content: Text('¿Seguro que deseas limpiar la mesa ${table.tableName}? Esto la dejará disponible.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancelar'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Limpiar'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) _freeTable(table);
+                  },
+                ),
+                // Botón eliminar mesa con confirmación
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  tooltip: 'Eliminar Mesa',
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmar eliminación'),
+                        content: Text('¿Seguro que deseas eliminar la mesa ${table.tableName}? Esta acción no se puede deshacer.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancelar'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            child: const Text('Eliminar'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) _deleteTable(table);
+                  },
+                ),
                 // Status Chip
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -240,55 +292,6 @@ class _TableManagementDialogState extends State<TableManagementDialog> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Menu
-                PopupMenuButton<String>(
-                  onSelected: (value) => _handleTableAction(value, table),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit),
-                          SizedBox(width: 8),
-                          Text('Editar'),
-                        ],
-                      ),
-                    ),
-                    if (table.isAvailable)
-                      const PopupMenuItem(
-                        value: 'occupy',
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_add),
-                            SizedBox(width: 8),
-                            Text('Marcar Ocupada'),
-                          ],
-                        ),
-                      ),
-                    if (table.isOccupied)
-                      const PopupMenuItem(
-                        value: 'free',
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_remove),
-                            SizedBox(width: 8),
-                            Text('Liberar Mesa'),
-                          ],
-                        ),
-                      ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Eliminar', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -483,6 +486,9 @@ class _CreateTableDialogState extends State<_CreateTableDialog> {
   bool _isLoading = false;
   int _capacity = 4;
   String _joinCode = '';
+  List<app_user.User> _employees = [];
+  String? _selectedEmployeeId;
+  String? _selectedEmployeeName;
 
   @override
   void initState() {
@@ -491,9 +497,18 @@ class _CreateTableDialogState extends State<_CreateTableDialog> {
       _nameController.text = widget.table!.tableName;
       _capacity = widget.table!.capacity;
       _joinCode = widget.table!.joinCode;
+      _selectedEmployeeId = widget.table!.assignedEmployeeId;
+      _selectedEmployeeName = widget.table!.assignedEmployeeName;
     } else {
       _joinCode = RestaurantTable.generateJoinCode();
     }
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    final service = FirebaseService();
+    final employees = await service.getRestaurantEmployees(widget.restaurantId);
+    if (mounted) setState(() => _employees = employees);
   }
 
   @override
@@ -557,6 +572,41 @@ class _CreateTableDialogState extends State<_CreateTableDialog> {
                 return null;
               },
             ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedEmployeeId,
+              decoration: const InputDecoration(
+                labelText: 'Empleado asignado (opcional)',
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Ninguno')),
+                ..._employees.map((e) => DropdownMenuItem(
+                  value: e.id,
+                  child: Text(e.name),
+                )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedEmployeeId = value;
+                  _selectedEmployeeName = _employees.firstWhere(
+                    (e) => e.id == value,
+                    orElse: () => app_user.User(
+                      id: '',
+                      email: '',
+                      name: '',
+                      role: '',
+                      createdAt: DateTime.now(),
+                      updatedAt: DateTime.now(),
+                      isActive: false,
+                      isEmployee: false,
+                      preferences: {},
+                      addresses: [],
+                      paymentMethods: [],
+                    ),
+                  ).name;
+                });
+              },
+            ),
           ],
         ),
       ),
@@ -585,6 +635,15 @@ class _CreateTableDialogState extends State<_CreateTableDialog> {
 
   Future<void> _saveTable() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_capacity < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('La capacidad debe ser al menos 1'),
+          backgroundColor: Colors.red[600],
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -595,6 +654,10 @@ class _CreateTableDialogState extends State<_CreateTableDialog> {
         'capacity': _capacity,
         'joinCode': _joinCode,
         'status': 'disponible',
+        'currentUserName': <String>[],
+        'currentUserId': <String>[],
+        'assignedEmployeeId': _selectedEmployeeId,
+        'assignedEmployeeName': _selectedEmployeeName,
       };
 
       if (widget.table != null) {

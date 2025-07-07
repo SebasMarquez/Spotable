@@ -5,12 +5,14 @@ class OrderItem {
   final String dishName;
   final int quantity;
   final double unitPrice;
+  final String? comment;
 
   OrderItem({
     required this.dishId,
     required this.dishName,
     required this.quantity,
     required this.unitPrice,
+    this.comment,
   });
 
   factory OrderItem.fromMap(Map<String, dynamic> data) {
@@ -19,6 +21,7 @@ class OrderItem {
       dishName: data['dishName'],
       quantity: data['quantity'],
       unitPrice: (data['unitPrice'] ?? 0).toDouble(),
+      comment: data['comment'],
     );
   }
 
@@ -28,7 +31,21 @@ class OrderItem {
       'dishName': dishName,
       'quantity': quantity,
       'unitPrice': unitPrice,
+      'comment': comment,
     };
+  }
+
+  OrderItem copyWith({
+    int? quantity,
+    String? comment,
+  }) {
+    return OrderItem(
+      dishId: dishId,
+      dishName: dishName,
+      quantity: quantity ?? this.quantity,
+      unitPrice: unitPrice,
+      comment: comment ?? this.comment,
+    );
   }
 }
 

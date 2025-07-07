@@ -16,52 +16,27 @@ class FirebaseService {
   Future<UserCredential> signInWithEmailAndPassword(
     String email, 
     String password,
-    String role,
   ) async {
     try {
-      print('Intentando login con email: $email, role: $role');
-      
+      print('Intentando login con email: $email');
       final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
       print('Login exitoso en Firebase Auth, UID: ${credential.user!.uid}');
-      
       // Verify user role
       final userDoc = await _firestore
           .collection('users')
           .doc(credential.user!.uid)
           .get();
-      
       print('Documento encontrado en Firestore: ${userDoc.exists}');
-      
       if (!userDoc.exists) {
         print('Usuario no encontrado en Firestore');
         throw Exception('Usuario no encontrado');
       }
-      
       final userData = userDoc.data()!;
       print('Datos del usuario: $userData');
-      
-      // Verificar si es empleado usando el campo isEmployee
-      final isEmployee = userData['isEmployee'] == true;
-      print('Es empleado: $isEmployee, Rol esperado: $role');
-      
-      // Lógica de verificación:
-      // - Si el usuario es empleado (isEmployee: true), debe seleccionar 'restaurant'
-      // - Si el usuario no es empleado (isEmployee: false o null), debe seleccionar 'client'
-      if (isEmployee && role != 'restaurant') {
-        print('Usuario es empleado pero seleccionó rol: $role');
-        await _auth.signOut();
-        throw Exception('Este usuario es un empleado. Selecciona "Restaurante" para acceder.');
-      } else if (!isEmployee && role != 'client') {
-        print('Usuario no es empleado pero seleccionó rol: $role');
-        await _auth.signOut();
-        throw Exception('Este usuario es un cliente. Selecciona "Cliente" para acceder.');
-      }
-      
-      print('Login exitoso con rol correcto');
+      // Ya no se valida el rol aquí, solo se retorna el credential
       return credential;
     } catch (e) {
       print('Error en signInWithEmailAndPassword: $e');
@@ -250,8 +225,8 @@ class FirebaseService {
       
       if (doc.exists) {
         print('Documento encontrado en Firestore');
-        final userData = app_user.User.fromMap(doc.data()!);
-        print('Usuario cargado: ${userData.name}, Email: ${userData.email}');
+        final userData = app_user.User.fromMap(doc.data()!, doc.id);
+        print('Usuario cargado: [33m[1m[4m${userData.name}[0m, Email: ${userData.email}, ID: ${userData.id}');
         return userData;
       } else {
         print('Documento no encontrado en Firestore para UID: ${currentUser!.uid}');

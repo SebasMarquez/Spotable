@@ -20,7 +20,6 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final FirebaseService _firebaseService = FirebaseService();
-  String _selectedRole = 'client';
   bool _isLoading = false;
   bool _isLogin = true;
 
@@ -40,29 +39,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   Future<void> _handleAuthenticatedUser() async {
     if (!mounted) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() { _isLoading = true; });
     try {
-      print('Manejando usuario autenticado...');
       final userData = await _firebaseService.getCurrentUserData();
-      
       if (userData != null) {
-        print('Usuario encontrado: ${userData.name}, Email: ${userData.email}');
-        print('Datos del usuario: role=${userData.role}, isEmployee=${userData.isEmployee}');
-        
         if (userData.role == 'restaurant' && userData.restaurantId == null) {
-          // Restaurant owner without restaurant, show create restaurant dialog
-          if (mounted) {
-            _showCreateRestaurantDialog();
-          }
+          if (mounted) _showCreateRestaurantDialog();
         } else {
-          // Navigate to appropriate screen based on role
-          if (mounted) {
-            _navigateToAppropriateScreen(userData);
-          }
+          if (mounted) _navigateToAppropriateScreen(userData);
         }
       } else {
         print('No se encontraron datos del usuario');
@@ -70,31 +54,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     } catch (e) {
       print('Error handling authenticated user: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() { _isLoading = false; });
     }
   }
 
   void _navigateToAppropriateScreen(dynamic userData) {
-    // Verificar si es empleado usando el campo isEmployee
     bool isEmployee = userData.isEmployee == true;
-    
     if (isEmployee) {
-      // Navigate to restaurant dashboard for employees
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const RestaurantDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const RestaurantDashboardScreen()),
       );
     } else {
-      // Navigate to client dashboard for clients
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const ClientDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const ClientDashboardScreen()),
       );
     }
   }
@@ -105,7 +77,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       barrierDismissible: false,
       builder: (context) => AuthDialog(
         isLogin: isLogin,
-        selectedRole: forceRestaurant ? 'restaurant' : 'client',
         onSuccess: _handleAuthenticatedUser,
       ),
     );
@@ -145,12 +116,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         },
       ),
     );
-  }
-
-  void _toggleRole() {
-    setState(() {
-      _selectedRole = _selectedRole == 'client' ? 'restaurant' : 'client';
-    });
   }
 
   @override
@@ -256,8 +221,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       _LoginGeneralForm(
                         onSuccess: _handleAuthenticatedUser,
                         isLogin: _isLogin,
-                        selectedRole: _selectedRole,
-                        onRoleChanged: (role) => setState(() => _selectedRole = role),
                       ),
                       const SizedBox(height: 12),
                       // Botón para alternar entre login y registro de usuario
@@ -663,13 +626,9 @@ class _CreateTestUserDialogState extends State<_CreateTestUserDialog> {
 class _LoginGeneralForm extends StatefulWidget {
   final VoidCallback onSuccess;
   final bool isLogin;
-  final String selectedRole;
-  final ValueChanged<String> onRoleChanged;
   const _LoginGeneralForm({
     required this.onSuccess,
     required this.isLogin,
-    required this.selectedRole,
-    required this.onRoleChanged,
   });
 
   @override
@@ -708,7 +667,6 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
         await _firebaseService.signInWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text,
-          widget.selectedRole,
         );
         widget.onSuccess();
       } else {
@@ -726,7 +684,7 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
           _emailController.text.trim(),
           _passwordController.text,
           name,
-          widget.selectedRole,
+          'restaurant',
           phone: phone,
           personalId: userId,
         );
@@ -773,47 +731,6 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
             ),
             const SizedBox(height: 16),
           ],
-          DropdownButtonFormField<String>(
-            value: widget.selectedRole,
-            icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF388e3c)),
-            decoration: InputDecoration(
-              labelText: 'Tipo de usuario',
-              prefixIcon: Icon(Icons.person_outline, color: Color(0xFF424242)),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Color(0xFFCFD8DC)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Color(0xFF388e3c), width: 2),
-              ),
-              contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-              labelStyle: TextStyle(color: Color(0xDD333333), fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.white54, offset: Offset(0,1), blurRadius: 2)]),
-            ),
-            dropdownColor: Colors.white,
-            style: TextStyle(color: Color(0xFF333333), fontSize: 16, fontWeight: FontWeight.w500),
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(value: 'client', child: Text('Cliente', style: TextStyle(fontSize: 16))),
-              DropdownMenuItem(value: 'restaurant', child: Text('Restaurante', style: TextStyle(fontSize: 16))),
-            ],
-            onChanged: (value) {
-              if (value != null) widget.onRoleChanged(value);
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Selecciona el tipo de usuario';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _emailController,
             decoration: InputDecoration(

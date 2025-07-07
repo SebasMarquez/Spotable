@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
 import '../utils/app_colors.dart';
+import '../screens/restaurant_dashboard_screen.dart';
+import '../screens/client_dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthDialog extends StatefulWidget {
   final bool isLogin;
-  final String selectedRole;
   final VoidCallback? onSuccess;
 
   const AuthDialog({
     Key? key,
     required this.isLogin,
-    required this.selectedRole,
     this.onSuccess,
   }) : super(key: key);
 
@@ -51,25 +53,57 @@ class _AuthDialogState extends State<AuthDialog> {
     });
 
     try {
-      // Only allow registration for client or restaurant
-      if (!['client', 'restaurant'].contains(widget.selectedRole)) {
-        setState(() {
-          _errorMessage = 'Solo puedes registrarte como Cliente o Restaurante. Los empleados solo pueden ser invitados.';
-        });
-        return;
-      }
       if (widget.isLogin) {
-        await _firebaseService.signInWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
-          widget.selectedRole,
+        // Login: autentica, luego revisa Firestore para tipo de usuario
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
         );
+        final user = userCredential.user;
+        if (user != null) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+          final userData = userDoc.data();
+          if (userData == null) {
+            setState(() { _errorMessage = 'Usuario no encontrado en la base de datos.'; });
+            return;
+          }
+          if (userData['isEmployee'] == true) {
+            final restaurantId = userData['worksAtRestaurantId'];
+            if (restaurantId != null && restaurantId.toString().isNotEmpty) {
+              // Guarda restaurantId en SharedPreferences
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('restaurant_id', restaurantId);
+              print('[DEBUG] Navegando a RestaurantDashboardScreen con restaurantId: ' + restaurantId.toString());
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const RestaurantDashboardScreen(),
+                ),
+              );
+              return;
+            } else {
+              print('[DEBUG] Empleado sin restaurante asignado, mostrando error.');
+              setState(() { _errorMessage = 'No tienes un restaurante asignado. Contacta a tu administrador.'; });
+              return;
+            }
+          } else {
+            print('[DEBUG] Navegando a ClientDashboardScreen');
+            Navigator.of(context).pop();
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => ClientDashboardScreen(),
+              ),
+            );
+            return;
+          }
+        }
       } else {
+        // Registro: crea como cliente por defecto
         await _firebaseService.createUserWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text,
           _nameController.text.trim(),
-          widget.selectedRole,
+          'client',
           phone: _phoneController.text.trim().isEmpty 
               ? null 
               : _phoneController.text.trim(),
@@ -77,11 +111,9 @@ class _AuthDialogState extends State<AuthDialog> {
               ? null 
               : _personalIdController.text.trim(),
         );
-      }
-      
-      if (mounted) {
         Navigator.of(context).pop();
-        widget.onSuccess?.call();
+        if (widget.onSuccess != null) widget.onSuccess!();
+        return;
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -107,7 +139,7 @@ class _AuthDialogState extends State<AuthDialog> {
     });
 
     try {
-      await _firebaseService.signInWithGoogle(widget.selectedRole);
+      await _firebaseService.signInWithGoogle('client');
       
       if (mounted) {
         Navigator.of(context).pop();
@@ -213,42 +245,6 @@ class _AuthDialogState extends State<AuthDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Role indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.primary),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              widget.selectedRole == 'client' 
-                                  ? Icons.person 
-                                  : Icons.restaurant,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              widget.selectedRole == 'client' 
-                                  ? 'Cliente' 
-                                  : 'Restaurante',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 20),
-                      
                       // Error message
                       if (_errorMessage != null) ...[
                         Container(
@@ -363,7 +359,7 @@ class _AuthDialogState extends State<AuthDialog> {
                       ],
                       
                       // Personal ID field (only for registration, only for clients)
-                      if (!widget.isLogin && widget.selectedRole == 'client') ...[
+                      if (!widget.isLogin && widget.isLogin) ...[
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _personalIdController,
