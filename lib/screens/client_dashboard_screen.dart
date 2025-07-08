@@ -179,29 +179,34 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      centerTitle: true,
-      title: Center(
-        child: Image.asset('assets/images/Logo_spotable.png', height: 40),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.account_circle, color: AppColors.primary, size: 30),
-          tooltip: 'Ver perfil',
-          onPressed: _currentUser == null ? null : () async {
-            await showDialog(
-              context: context,
-              builder: (context) => UserProfileDialog(
-                user: _currentUser!,
-                onProfileUpdated: _loadData,
-              ),
-            );
-          },
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(64),
+      child: SafeArea(
+        child: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          title: Center(
+            child: Image.asset('assets/images/Logo_spotable.png', height: 40),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.account_circle, color: AppColors.primary, size: 30),
+              tooltip: 'Ver perfil',
+              onPressed: _currentUser == null ? null : () async {
+                await showDialog(
+                  context: context,
+                  builder: (context) => UserProfileDialog(
+                    user: _currentUser!,
+                    onProfileUpdated: _loadData,
+                  ),
+                );
+              },
+            ),
+          ],
+          automaticallyImplyLeading: false,
         ),
-      ],
-      automaticallyImplyLeading: false,
+      ),
     );
   }
 
@@ -642,7 +647,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('\$24${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}'),
+                          Text('${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}'),
                           if (!isEditing)
                             Row(
                               children: [
@@ -703,7 +708,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary)),
-                Text('\$24${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
           ],
@@ -751,7 +756,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Fecha: ${order.createdAt.toString().substring(0, 16)}'),
-                    Text('Total: \$24${order.totalAmount.toStringAsFixed(2)}'),
+                    Text('Total: ${order.totalAmount.toStringAsFixed(2)}'),
                     Text('Estado: ${order.status}', style: TextStyle(fontWeight: FontWeight.w500, color: cardColor)),
                   ],
                 ),

@@ -903,18 +903,18 @@ class _LoginGeneralFormState extends State<_LoginGeneralForm> {
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 56, // Aumentado de 48 a 56 para más espacio
             child: ElevatedButton(
               onPressed: _isLoading ? null : _handleLoginOrRegister,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF388e3c),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: const EdgeInsets.symmetric(vertical: 16), // Reducido de 18 a 16
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 4,
-                textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Reducido de 18 a 16
               ),
               child: _isLoading
                   ? const SizedBox(

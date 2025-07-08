@@ -12,7 +12,20 @@
           "package_name": "com.example.spotable_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "953542119429-l8m0j7rmtl2gn2r0knb4pgq1kad2f7pt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.spotable_app",
+            "certificate_hash": "a83d3d60d1fbdc5e95520922f0aacd1fb8e23a6a"
+          }
+        },
+        {
+          "client_id": "953542119429-ril7r6mht4t705cn0abgheu6c6ofpuo5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCYEnGtA5uk_f4ZCrVW_cqoexuagWjk7wA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "953542119429-ril7r6mht4t705cn0abgheu6c6ofpuo5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "953542119429-f6rcers7l4k9f576a8rnmo439ul7qjbi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.spotableApp"
+              }
+            }
+          ]
         }
       }
     }

@@ -7,12 +7,35 @@ import 'screens/client_dashboard_screen.dart';
 import 'utils/app_colors.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('[DEBUG] Firebase inicializado correctamente');
+  } on PlatformException catch (e) {
+    print('[ERROR] PlatformException durante inicialización de Firebase: ${e.code} - ${e.message}');
+    print('[ERROR] Detalles: ${e.details}');
+    
+    // Si es un error de configuración, mostrar información útil
+    if (e.code == 'firebase_core/no-options') {
+      print('[ERROR] No se encontraron opciones de Firebase para esta plataforma');
+    } else if (e.code == 'firebase_core/initialization-error') {
+      print('[ERROR] Error durante la inicialización de Firebase');
+    }
+    
+    // Continuar con la app pero mostrar un mensaje de error
+    print('[WARNING] Continuando sin Firebase inicializado');
+  } catch (e) {
+    print('[ERROR] Error inesperado durante inicialización de Firebase: $e');
+    print('[WARNING] Continuando sin Firebase inicializado');
+  }
+  
   runApp(const MyApp());
 }
 
